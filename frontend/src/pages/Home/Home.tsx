@@ -1,18 +1,21 @@
 import GameButton from '../../components/GameButton/GameButton'
 import GameTitle from '../../components/GameTitle/GameTitle'
+import './Home.css'
 
 function Home() {
   return (
-    <main>
+    <main className="home">
       <GameTitle />
 
-      <GameButton>
-        Iniciar partida
-      </GameButton>
+      <div className="home-actions">
+        <GameButton>
+          Iniciar partida
+        </GameButton>
 
-      <GameButton>
-        Ver ranking
-      </GameButton>
+        <GameButton>
+          Ver ranking
+        </GameButton>
+      </div>
     </main>
   )
 }
