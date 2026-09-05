@@ -1,11 +1,9 @@
+import GameTitle from '../../components/GameTitle/GameTitle'
+
 function Home() {
   return (
     <main>
-      <h1>¿Quién es ese personaje?</h1>
-
-      <p>
-        Pon a prueba tus conocimientos Pokémon.
-      </p>
+      <GameTitle />
 
       <button>
         Iniciar partida
