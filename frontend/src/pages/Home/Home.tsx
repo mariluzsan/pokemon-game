@@ -1,3 +1,4 @@
+import GameButton from '../../components/GameButton/GameButton'
 import GameTitle from '../../components/GameTitle/GameTitle'
 
 function Home() {
@@ -5,13 +6,13 @@ function Home() {
     <main>
       <GameTitle />
 
-      <button>
+      <GameButton>
         Iniciar partida
-      </button>
+      </GameButton>
 
-      <button>
+      <GameButton>
         Ver ranking
-      </button>
+      </GameButton>
     </main>
   )
 }
