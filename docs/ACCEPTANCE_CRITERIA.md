@@ -1,5 +1,15 @@
 # Criterios de Aceptación
 
+## US-04 — Disponer de un tiempo limitado para responder
+- Al iniciar una ronda, el sistema asigna una duración máxima de respuesta previamente configurada.
+- El temporizador comienza a contar cuando la ronda queda iniciada y muestra al jugador el tiempo restante.
+- El tiempo restante disminuye de forma continua hasta llegar a cero, sin reiniciarse durante la ronda.
+- Una respuesta enviada antes de que expire el tiempo se procesa normalmente y conserva el resultado correspondiente.
+- Cuando el tiempo llega a cero sin una respuesta válida, la ronda se marca como expirada y deja de aceptar respuestas.
+- Una respuesta enviada después de la expiración es rechazada por el backend con un error de dominio seguro y no modifica el resultado de la ronda.
+- El backend determina si una respuesta llegó dentro del tiempo límite usando la hora de inicio de la ronda y la duración configurada; el temporizador del frontend no es la fuente de verdad.
+- La expiración de una ronda no detiene ni corrompe la partida y permite continuar con el flujo definido para la siguiente ronda.
+
 ## Partida
 - Se puede crear una partida con datos válidos.
 - Cada ronda pertenece a una partida.
