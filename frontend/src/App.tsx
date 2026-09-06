@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import Home from './pages/Home/Home'
 import Game from './pages/Game/Game'
+import Ranking from './pages/Ranking/Ranking'
 
-type PageType = 'home' | 'game'
+type PageType = 'home' | 'game' | 'ranking'
 
 interface PageState {
   currentPage: PageType
@@ -10,6 +11,13 @@ interface PageState {
 }
 
 function getPageStateFromPath(path: string): PageState {
+  if (path === '/ranking') {
+    return {
+      currentPage: 'ranking',
+      gameId: null,
+    }
+  }
+
   if (path.startsWith('/game/')) {
     return {
       currentPage: 'game',
@@ -43,7 +51,7 @@ function App() {
       const link = target.closest('a')
       if (link && link.href.startsWith(window.location.origin)) {
         const path = link.href.replace(window.location.origin, '')
-        if (path.startsWith('/game/')) {
+        if (path === '/ranking' || path.startsWith('/game/')) {
           event.preventDefault()
           window.history.pushState({}, '', path)
           setPageState(getPageStateFromPath(path))
@@ -57,6 +65,10 @@ function App() {
 
   if (pageState.currentPage === 'game' && pageState.gameId) {
     return <Game gameId={pageState.gameId} />
+  }
+
+  if (pageState.currentPage === 'ranking') {
+    return <Ranking />
   }
 
   return <Home />

@@ -84,6 +84,17 @@
   font-weight: 700;
 }
 
+.home-actions__link {
+  color: var(--blue-dark);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.home-actions__link:hover,
+.home-actions__link:focus-visible {
+  text-decoration: underline;
+}
+
 .home__footnote {
   margin: 1.5rem 0 0;
   color: var(--muted);

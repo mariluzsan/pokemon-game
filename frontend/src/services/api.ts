@@ -50,6 +50,11 @@ export interface Hint {
   hintsRemaining: number
 }
 
+export interface RankingEntry {
+  playerName: string
+  score: number
+}
+
 interface CreateGameResponse {
   game: Game
 }
@@ -72,6 +77,10 @@ interface ExpireRoundResponse {
 
 interface RequestHintResponse {
   hint: Hint
+}
+
+interface GetRankingResponse {
+  ranking: RankingEntry[]
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
@@ -178,6 +187,21 @@ export async function requestHint(gameId: number, roundId: number): Promise<Hint
 
   const data = await response.json() as RequestHintResponse
   return data.hint
+}
+
+export async function getRanking(signal?: AbortSignal): Promise<RankingEntry[]> {
+  const response = await fetch(`${API_BASE_URL}/ranking`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    signal,
+  })
+
+  await ensureSuccessfulResponse(response, 'No fue posible consultar el ranking.')
+
+  const data = await response.json() as GetRankingResponse
+  return data.ranking
 }
 
 

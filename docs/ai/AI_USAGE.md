@@ -98,6 +98,18 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Visualizacion clara del ranking US-22
+
+- Objetivo: implementar exclusivamente la visualización del ranking en frontend reutilizando el endpoint de US-20 y el orden autoritativo de US-21, sin mover lógica de negocio al cliente.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar criterios exactos de US-22, contrato real de `GET /api/ranking`, navegación existente sin React Router y la infraestructura actual de frontend para incorporar una pantalla clara, accesible y con estados explícitos.
+- Resultado propuesto: ampliar la navegación manual existente con la ruta `/ranking`, añadir `getRanking()` en `frontend/src/services/api.ts`, mostrar una tabla semántica con posición visual secuencial, jugador y puntuación, más estados `loading`, `success`, `empty` y `error`.
+- Decisión: aceptada. El frontend no consulta PostgreSQL, no recalcula score, no ordena la colección recibida y no expone campos internos; la posición visible se deriva del orden recibido porque el contrato de backend no devuelve `position` y US-22 exige mostrar como mínimo la posición.
+- Decisiones descartadas: crear un endpoint nuevo, ordenar con `Array.sort`, recalcular desempates, acceder a resultados individuales de partidas, añadir React Router o persistir ranking en `localStorage`.
+- Verificación: pruebas frontend para loading, datos, estado vacío, error, acceso por navegación y conservación exacta del orden recibido; además de build/lint/test frontend, test backend completo, `git diff --check`, errores del editor y `git status`.
+- Archivos afectados: frontend de ranking, `frontend/package.json`, `frontend/vite.config.ts`, `README.md` y este registro.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
+
 ### 2026-09-06 - Orden correcto de puntuaciones US-21
 
 - Objetivo: implementar exclusivamente US-21 sobre la consulta de ranking de US-20 para devolver resultados en el orden funcional correcto, manteniendo backend como autoridad y sin adelantar la UI de US-22.

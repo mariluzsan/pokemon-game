@@ -1,0 +1,90 @@
+.ranking-page {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: clamp(1.5rem, 5vw, 3rem) 1rem 2rem;
+  box-sizing: border-box;
+}
+
+.ranking-page__content {
+  width: min(100%, 56rem);
+  display: grid;
+  gap: 1.5rem;
+  align-content: start;
+}
+
+.ranking-panel {
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.ranking-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.ranking-panel__eyebrow {
+  margin: 0 0 0.35rem;
+  color: var(--blue-dark);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ranking-panel h2 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+}
+
+.ranking-panel__home-link {
+  color: var(--blue-dark);
+  font-weight: 700;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ranking-panel__home-link:hover,
+.ranking-panel__home-link:focus-visible {
+  text-decoration: underline;
+}
+
+.ranking-panel__status {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 8px;
+  background: #f3f7fa;
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.ranking-panel__status--error {
+  background: #fff1ef;
+  color: #a82b23;
+}
+
+.ranking-page__actions {
+  display: flex;
+  justify-content: center;
+}
+
+.ranking-page__actions a {
+  text-decoration: none;
+}
+
+@media (max-width: 640px) {
+  .ranking-panel {
+    padding: 1rem;
+  }
+
+  .ranking-panel__header {
+    align-items: start;
+    flex-direction: column;
+  }
+}

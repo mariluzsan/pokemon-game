@@ -321,7 +321,13 @@ export default function Game({ gameId }: GameProps) {
             </div>
           )}
           {state.gameStatus === 'FINISHED' ? (
-            <p className="game-status__final">Partida terminada. Puntuación final: {state.totalScore}</p>
+            <>
+              <p className="game-status__final">Partida terminada. Puntuación final: {state.totalScore}</p>
+              <div className="game-status__actions">
+                <a className="game-status__link" href="/ranking">Ver ranking</a>
+                <a className="game-status__link" href="/">Volver al inicio</a>
+              </div>
+            </>
           ) : (
             <GameButton onClick={() => { void loadNextRound() }} disabled={state.isLoading}>
               Continuar

@@ -159,6 +159,25 @@
   margin-top: 0.45rem;
 }
 
+.game-status__actions {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 0.85rem;
+}
+
+.game-status__link {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.game-status__link:hover,
+.game-status__link:focus-visible {
+  text-decoration: underline;
+}
+
 .game-status__heading {
   margin: 0;
   font-family: var(--heading);

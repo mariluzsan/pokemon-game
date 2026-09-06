@@ -62,6 +62,10 @@ function Home() {
           <GameButton type="submit" disabled={isStarting}>
             {isStarting ? 'Iniciando...' : 'Jugar ahora'}
           </GameButton>
+
+          <a className="home-actions__link" href="/ranking">
+            Ver ranking
+          </a>
         </form>
 
         {error && <p className="home-error">{error}</p>}

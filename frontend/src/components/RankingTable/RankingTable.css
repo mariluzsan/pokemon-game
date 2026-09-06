@@ -1,0 +1,38 @@
+.ranking-table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.ranking-table table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 22rem;
+}
+
+.ranking-table th,
+.ranking-table td {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.ranking-table th {
+  color: var(--blue-dark);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ranking-table td:last-child,
+.ranking-table th:last-child {
+  text-align: right;
+}
+
+.ranking-table td:first-child,
+.ranking-table th:first-child {
+  width: 6rem;
+}
+
+.ranking-table tbody tr:last-child td {
+  border-bottom: 0;
+}

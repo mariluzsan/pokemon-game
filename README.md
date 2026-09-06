@@ -36,6 +36,10 @@ El alcance funcional contempla:
 13. persistencia del resultado;
 14. ranking de jugadores.
 
+El ranking puede consultarse desde la pantalla inicial y al finalizar una
+partida. El frontend consume `GET /api/ranking` y presenta el orden exacto que
+entrega el backend, sin recalcular puntuaciones ni reordenar resultados.
+
 El detalle se encuentra en `docs/REQUIREMENTS.md`, `docs/USER_STORIES.md` y `docs/ACCEPTANCE_CRITERIA.md`.
 
 ## Stack tecnológico
