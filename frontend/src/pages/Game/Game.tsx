@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import PokemonChallenge from '../../components/PokemonChallenge/PokemonChallenge'
 import GameButton from '../../components/GameButton/GameButton'
 import Timer from '../../components/Timer/Timer'
-import { createRound, expireRound, getRoundChallenge, submitGuess, type Round, type RoundChallenge } from '../../services/api'
+import { createRound, expireRound, getRoundChallenge, requestHint, submitGuess, type Round, type RoundChallenge } from '../../services/api'
 import './Game.css'
 
 interface GameProps {
@@ -19,6 +19,9 @@ interface GamePageState {
   isSubmitting: boolean
   roundResult: RoundResultStatus
   guessError: string | null
+  isRequestingHint: boolean
+  hintLevel: number | null
+  hintError: string | null
   score: number | null
   totalScore: number | null
   gameStatus: 'IN_PROGRESS' | 'FINISHED'
@@ -34,6 +37,9 @@ export default function Game({ gameId }: GameProps) {
     isSubmitting: false,
     roundResult: null,
     guessError: null,
+    isRequestingHint: false,
+    hintLevel: null,
+    hintError: null,
     score: null,
     totalScore: null,
     gameStatus: 'IN_PROGRESS',
@@ -49,6 +55,9 @@ export default function Game({ gameId }: GameProps) {
       challenge: null,
       roundResult: null,
       guessError: null,
+      isRequestingHint: false,
+      hintLevel: null,
+      hintError: null,
       score: null,
       totalScore: null,
     }))
@@ -102,7 +111,7 @@ export default function Game({ gameId }: GameProps) {
   async function handleSubmitGuess(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (state.roundResult || state.isSubmitting || !state.round || !answer.trim()) {
+    if (state.roundResult || state.isSubmitting || state.isRequestingHint || !state.round || !answer.trim()) {
       return
     }
 
@@ -172,11 +181,35 @@ export default function Game({ gameId }: GameProps) {
         score: 0,
         totalScore: completion.totalScore,
         gameStatus: completion.status,
+        hintError: null,
       }))
     } catch (error) {
       setState((prev) => ({
         ...prev,
         guessError: error instanceof Error ? error.message : 'No fue posible registrar la expiración.',
+      }))
+    }
+  }
+
+  async function handleRequestHint() {
+    if (state.roundResult || state.isRequestingHint || !state.round) {
+      return
+    }
+
+    setState((prev) => ({ ...prev, isRequestingHint: true, hintError: null }))
+
+    try {
+      const hint = await requestHint(Number(gameId), state.round.id)
+      setState((prev) => ({
+        ...prev,
+        isRequestingHint: false,
+        hintLevel: hint.level,
+      }))
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        isRequestingHint: false,
+        hintError: error instanceof Error ? error.message : 'No fue posible solicitar la pista.',
       }))
     }
   }
@@ -203,18 +236,25 @@ export default function Game({ gameId }: GameProps) {
             <input
               value={answer}
               onChange={(event) => setAnswer(event.target.value)}
-              disabled={state.isSubmitting}
+              disabled={state.isSubmitting || state.isRequestingHint}
               autoComplete="off"
               required
             />
           </label>
-          <GameButton type="submit" disabled={state.isSubmitting || !answer.trim()}>
+          <GameButton type="submit" disabled={state.isSubmitting || state.isRequestingHint || !answer.trim()}>
             {state.isSubmitting ? 'Enviando...' : 'Enviar respuesta'}
+          </GameButton>
+          <GameButton type="button" onClick={() => { void handleRequestHint() }} disabled={state.isSubmitting || state.isRequestingHint}>
+            {state.isRequestingHint ? 'Solicitando pista...' : 'Solicitar pista'}
           </GameButton>
         </form>
       )}
 
       {state.guessError && <p className="error">{state.guessError}</p>}
+      {state.hintLevel !== null && (
+        <p className="hint-status">Pista {state.hintLevel} solicitada. Estara disponible al generarse.</p>
+      )}
+      {state.hintError && <p className="error">{state.hintError}</p>}
       {state.roundResult !== null && (
         <div className="game-status">
           <p>

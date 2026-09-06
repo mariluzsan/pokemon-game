@@ -21,6 +21,16 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Solicitud de pistas US-09
+- Objetivo: implementar únicamente US-09 para registrar solicitudes progresivas de pista durante una ronda vigente, sin implementar generación funcional de IA.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar criterios, arquitectura, ADRs, esquema, US-01 a US-08, seguridad y pruebas; preservar el límite entre solicitud (US-09) y generación de contenido con IA (US-10).
+- Resultado propuesto: crear el módulo `hints`, registrar transaccionalmente el nivel y `hints_used`, exponer `POST /api/games/:gameId/rounds/:roundId/hints` y devolver `{ level, content: null }` sin identidad del Pokémon.
+- Decision: aceptado por el Tech Lead. US-09 aplica temporalmente el límite de tres por ser criterio explícito. `content: null` representa una solicitud registrada; US-10 implementará el proveedor de IA y completará el contenido sin romper el contrato.
+- Verificacion: pruebas unitarias del servicio de pistas, suite backend, build/lint frontend, revisión de payloads, `git diff --check` y prueba manual en `MANUAL_TEST_PLAN_US09.md`.
+- Archivos afectados: `backend/src/modules/hints/*`, `backend/src/modules/game/game.controller.ts`, `backend/src/modules/game/game.routes.ts`, `frontend/src/services/api.ts`, `frontend/src/pages/Game/Game.tsx`, `frontend/src/pages/Game/Game.css`, `docs/API_SPECIFICATION.md`, `MANUAL_TEST_PLAN_US09.md`.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
+
 ### 2026-09-06 - Finalizacion de partida US-08
 - Objetivo: implementar unicamente US-08, completando diez rondas y finalizando la partida desde backend.
 - Herramienta/modelo: GitHub Copilot.

@@ -204,6 +204,37 @@ Errores previstos:
 - `409 ROUND_NOT_EXPIRED` cuando todavía no se alcanza el límite de 30 segundos.
 - `500 DATABASE_ERROR` cuando no fue posible persistir la expiración.
 
+### POST `/api/games/:gameId/rounds/:roundId/hints`
+
+Registra la solicitud de la siguiente pista progresiva de una ronda vigente.
+No requiere body y no admite que el cliente determine el Pokémon, el contenido,
+la penalización, la dificultad ni el nivel de la pista.
+
+Respuesta exitosa `201 Created`:
+
+```json
+{
+  "hint": {
+    "level": 1,
+    "content": null
+  }
+}
+```
+
+En US-09, `content` es `null`: la solicitud y su nivel quedan registrados, pero
+la generación y entrega del contenido corresponden a US-10. La respuesta no
+incluye `pokemonId`, `pokemon_id`, el nombre ni la respuesta correcta.
+
+Errores previstos:
+
+- `400 VALIDATION_ERROR` cuando `gameId` o `roundId` no son enteros positivos, la ronda no existe o no pertenece a la partida.
+- `404 GAME_NOT_FOUND` cuando la partida no existe.
+- `409 GAME_NOT_IN_PROGRESS` cuando la partida está finalizada.
+- `409 ROUND_ALREADY_RESOLVED` cuando la ronda ya fue resuelta.
+- `409 ROUND_EXPIRED` cuando la ronda alcanzó el límite de tiempo.
+- `409 HINT_LIMIT_REACHED` cuando ya se solicitaron tres pistas en la ronda.
+- `500 DATABASE_ERROR` cuando no fue posible registrar la solicitud.
+
 ## Error estándar
 ```json
 {

@@ -45,3 +45,10 @@
   font-weight: 600;
   text-align: center;
 }
+
+.hint-status {
+  color: #1565c0;
+  font-weight: 600;
+  margin: 0;
+  text-align: center;
+}

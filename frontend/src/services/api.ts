@@ -39,6 +39,11 @@ export interface RoundCompletion {
   finishedAt: string | null
 }
 
+export interface Hint {
+  level: number
+  content: null
+}
+
 interface CreateGameResponse {
   game: Game
 }
@@ -57,6 +62,10 @@ interface SubmitGuessResponse {
 
 interface ExpireRoundResponse {
   completion: RoundCompletion
+}
+
+interface RequestHintResponse {
+  hint: Hint
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
@@ -149,6 +158,20 @@ export async function expireRound(gameId: number, roundId: number): Promise<Roun
 
   const data = await response.json() as ExpireRoundResponse
   return data.completion
+}
+
+export async function requestHint(gameId: number, roundId: number): Promise<Hint> {
+  const response = await fetch(`${API_BASE_URL}/games/${gameId}/rounds/${roundId}/hints`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  await ensureSuccessfulResponse(response, 'No fue posible solicitar la pista.')
+
+  const data = await response.json() as RequestHintResponse
+  return data.hint
 }
 
 

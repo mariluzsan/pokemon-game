@@ -4,9 +4,12 @@ import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, RoundNotC
 import { RoundAlreadyResolvedError } from './round.repository.js'
 import { GameService } from './game.service.js'
 import { RoundService } from './round.service.js'
+import { HintLimitReachedError } from '../hints/hint.errors.js'
+import { HintService } from '../hints/hint.service.js'
 
 const gameService = new GameService()
 const roundService = new RoundService()
+const hintService = new HintService()
 
 export async function createGameController(req: Request, res: Response) {
   try {
@@ -253,6 +256,45 @@ export async function expireRoundController(req: Request, res: Response) {
 
     console.error('Error al registrar expiracion de ronda')
     res.status(500).json({ error: { code: 'DATABASE_ERROR', message: 'No fue posible registrar la expiracion.' } })
+  }
+}
+
+export async function requestHintController(req: Request, res: Response) {
+  try {
+    const hint = await hintService.requestHint({
+      gameId: Number(req.params.gameId),
+      roundId: Number(req.params.roundId),
+    })
+
+    res.status(201).json({ hint })
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: error.message } })
+      return
+    }
+    if (error instanceof GameNotFoundError) {
+      res.status(404).json({ error: { code: 'GAME_NOT_FOUND', message: error.message } })
+      return
+    }
+    if (error instanceof GameNotInProgressError) {
+      res.status(409).json({ error: { code: 'GAME_NOT_IN_PROGRESS', message: error.message } })
+      return
+    }
+    if (error instanceof RoundExpiredError) {
+      res.status(409).json({ error: { code: 'ROUND_EXPIRED', message: error.message } })
+      return
+    }
+    if (error instanceof RoundAlreadyResolvedError) {
+      res.status(409).json({ error: { code: 'ROUND_ALREADY_RESOLVED', message: error.message } })
+      return
+    }
+    if (error instanceof HintLimitReachedError) {
+      res.status(409).json({ error: { code: 'HINT_LIMIT_REACHED', message: error.message } })
+      return
+    }
+
+    console.error('Error al solicitar pista')
+    res.status(500).json({ error: { code: 'DATABASE_ERROR', message: 'No fue posible solicitar la pista.' } })
   }
 }
 

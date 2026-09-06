@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { createGameController, createRoundController, expireRoundController, getRoundChallengeController, submitGuessController } from './game.controller.js'
+import { createGameController, createRoundController, expireRoundController, getRoundChallengeController, requestHintController, submitGuessController } from './game.controller.js'
 
 export const gameRouter = Router()
 
@@ -8,4 +8,5 @@ gameRouter.post('/games/:gameId/rounds', createRoundController)
 gameRouter.get('/games/:gameId/rounds/:roundId/challenge', getRoundChallengeController)
 gameRouter.post('/games/:gameId/rounds/:roundId/guess', submitGuessController)
 gameRouter.post('/games/:gameId/rounds/:roundId/expire', expireRoundController)
+gameRouter.post('/games/:gameId/rounds/:roundId/hints', requestHintController)
 
