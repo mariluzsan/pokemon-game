@@ -4,6 +4,7 @@ import './Timer.css'
 interface TimerProps {
   startedAt: string
   durationSeconds: number
+  isActive?: boolean
   onExpired?: () => void
 }
 
@@ -12,7 +13,7 @@ function getRemainingSeconds(startedAt: string, durationSeconds: number, now: nu
   return Math.max(0, Math.ceil((deadline - now) / 1000))
 }
 
-export default function Timer({ startedAt, durationSeconds, onExpired }: TimerProps) {
+export default function Timer({ startedAt, durationSeconds, isActive = true, onExpired }: TimerProps) {
   const onExpiredRef = useRef(onExpired)
   const reportedExpirationRef = useRef(false)
   const [remainingSeconds, setRemainingSeconds] = useState(() => (
@@ -25,6 +26,11 @@ export default function Timer({ startedAt, durationSeconds, onExpired }: TimerPr
 
   useEffect(() => {
     reportedExpirationRef.current = false
+
+    if (!isActive) {
+      return
+    }
+
     const updateRemainingSeconds = () => {
       const remaining = getRemainingSeconds(startedAt, durationSeconds, Date.now())
       setRemainingSeconds(remaining)
@@ -41,7 +47,7 @@ export default function Timer({ startedAt, durationSeconds, onExpired }: TimerPr
     }, 250)
 
     return () => window.clearInterval(intervalId)
-  }, [startedAt, durationSeconds])
+  }, [startedAt, durationSeconds, isActive])
 
   const isExpired = remainingSeconds === 0
 

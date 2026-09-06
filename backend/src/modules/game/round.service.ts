@@ -177,5 +177,12 @@ export class RoundService {
 }
 
 function normalizeGuess(value: string): string {
-  return value.trim().toLowerCase()
+  return value
+    .trim()
+    .toLocaleLowerCase('en-US')
+    .replaceAll('♀', '-f')
+    .replaceAll('♂', '-m')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
 }

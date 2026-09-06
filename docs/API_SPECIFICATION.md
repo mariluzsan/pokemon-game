@@ -156,6 +156,9 @@ Respuesta correcta o incorrecta `200 OK`:
 **`isCorrect` (indica si la respuesta es correcta) puede ser `false` cuando la respuesta no coincide; en ese caso
 `score` es exactamente `0`. `score` es la puntuación de la ronda y
 `totalScore` es el total acumulado de la partida después de la operación.**
+La comparación normaliza mayúsculas/minúsculas, espacios, guiones, puntuación,
+tildes y los símbolos de género para aceptar el nombre de presentación del
+Pokémon sin aceptar alias, traducciones ni nombres parciales.
 El endpoint no revela el nombre correcto. La ronda queda resuelta después del
 primer envío aceptado y no avanza ni finaliza la partida por sí mismo.
 

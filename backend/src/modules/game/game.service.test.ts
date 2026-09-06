@@ -104,6 +104,8 @@ async function testChallengeIncludesConfiguredTimeLimit() {
 
   assert.equal(challenge.timeLimitSeconds, ROUND_TIME_LIMIT_SECONDS)
   assert.equal(challenge.timeLimitSeconds, 30)
+  assert.equal('pokemonId' in challenge, false)
+  assert.equal('pokemonName' in challenge, false)
 }
 
 async function testRoundExpiresAtConfiguredBoundary() {
@@ -261,6 +263,43 @@ async function testSubmitsCorrectGuessAndPersistsOnlyEvaluation() {
   assert.equal(typeof result.score, 'number')
   assert.equal(typeof result.totalScore, 'number')
   assert.deepEqual(persisted, { roundId: 11, timeTaken: 29, isCorrect: true, score: result.score })
+}
+
+async function testAcceptsFormattedPokemonNames() {
+  const formattedNames = [
+    { answer: 'Baxcalibur', pokemonName: 'baxcalibur' },
+    { answer: 'Mr. Mime', pokemonName: 'mr-mime' },
+    { answer: "Farfetch'd", pokemonName: 'farfetchd' },
+    { answer: 'Flabébé', pokemonName: 'flabebe' },
+    { answer: 'Nidoran♀', pokemonName: 'nidoran-f' },
+    { answer: 'Mime Jr.', pokemonName: 'mime-jr' },
+  ]
+
+  for (const { answer, pokemonName } of formattedNames) {
+    const result = await createGuessService({
+      pokemonName,
+      updateGuess: async () => 0,
+    }).submitGuess({ gameId: 7, roundId: 11, answer })
+
+    assert.equal(result.isCorrect, true, `${answer} debe coincidir con ${pokemonName}`)
+  }
+}
+
+async function testReturnsCorrectRoundResultWithoutRevealingPokemon() {
+  const roundService = createGuessService({
+    now: '2026-09-05T12:00:05.000Z',
+    updateGuess: async (_roundId, _finishedAt, _timeTaken, _isCorrect, _gameId, score) => score + 500,
+  })
+
+  const result = await roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'pikachu' })
+
+  assert.deepEqual(result, {
+    isCorrect: true,
+    score: 1416,
+    totalScore: 1916,
+  })
+  assert.equal('pokemonId' in result, false)
+  assert.equal('pokemonName' in result, false)
 }
 
 async function testSubmitsIncorrectGuessWithoutRevealingName() {
@@ -454,6 +493,8 @@ async function runTests() {
   await testRejectsFinishedGame()
   await testRejectsChallengeFromAnotherGame()
   await testSubmitsCorrectGuessAndPersistsOnlyEvaluation()
+  await testAcceptsFormattedPokemonNames()
+  await testReturnsCorrectRoundResultWithoutRevealingPokemon()
   await testSubmitsIncorrectGuessWithoutRevealingName()
   await testRejectsInvalidGuessInput()
   await testRejectsGuessAtDeadline()

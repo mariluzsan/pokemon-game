@@ -21,6 +21,27 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Resultado de ronda US-07
+- Objetivo: implementar unicamente US-07, mostrando el resultado de cada ronda dentro del flujo existente sin avanzar a US-08.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar criterios exactos, arquitectura, contratos, esquema y las implementaciones US-01 a US-06; integrar el resultado correcto, incorrecto o expirado; preservar la proteccion de la identidad del Pokemon y no crear funcionalidades de finalizacion.
+- Resultado propuesto: reutilizar el contrato existente de `POST /api/games/:gameId/rounds/:roundId/guess`, que ya devuelve `isCorrect`, `score` y `totalScore`; modelar en frontend el estado `ROUND_RESULT`, ocultar el formulario y detener el temporizador al resolverse o expirar la ronda; reforzar las pruebas de payload y ausencia de identidad.
+- Decision: aceptado. No se agrego endpoint ni migracion, porque los criterios no exigen revelar el Pokemon, el tiempo empleado ni consultar posteriormente el resultado. La expiracion mantiene el `409 ROUND_EXPIRED` de US-05 y la UI presenta el resultado expirado sin puntuacion.
+- Decision descartada: revelar nombre o identificador del Pokemon, persistir un estado adicional de expiracion, crear una pantalla final, finalizar la partida o habilitar siguiente ronda. No estan exigidos por US-07 o pertenecen a US-08.
+- Verificacion: `npm run build` en frontend; `npm test` en backend (migracion, servicio de juego y cliente PokéAPI); comprobacion de que los payloads de challenge y resultado no incluyen `pokemonId` ni `pokemonName`.
+- Archivos afectados: `frontend/src/pages/Game/Game.tsx`, `frontend/src/components/Timer/Timer.tsx`, `backend/src/modules/game/game.service.test.ts`, `docs/ai/AI_USAGE.md`.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
+
+### 2026-09-06 - Correccion de normalizacion de respuestas
+- Objetivo: corregir respuestas válidas marcadas como incorrectas cuando el nombre de presentación difiere del slug técnico de PokéAPI.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: investigar por qué algunos Pokémon se evalúan como incorrectos pese a utilizar el nombre correcto.
+- Resultado propuesto: normalizar diferencias ortográficas de presentación antes de comparar, incluyendo puntuación, tildes y símbolos de género; cubrir nombres compuestos representativos mediante pruebas.
+- Decision: aceptado. La corrección no acepta alias, traducciones ni coincidencias parciales y conserva la evaluación y puntuación exclusivamente en backend.
+- Verificacion: `npm test` en backend.
+- Archivos afectados: `backend/src/modules/game/round.service.ts`, `backend/src/modules/game/game.service.test.ts`, `docs/API_SPECIFICATION.md`, `docs/ai/AI_USAGE.md`.
+- Commit relacionado: pendiente.
+
 ### 2026-09-05 - Seleccion de Pokemon para una ronda US-02
 - Objetivo: implementar unicamente US-02, creando una ronda para una partida existente mediante un Pokemon real de PokéAPI.
 - Herramienta/modelo: GitHub Copilot.

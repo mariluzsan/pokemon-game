@@ -9,14 +9,15 @@ interface GameProps {
   gameId: string
 }
 
+type RoundResultStatus = 'CORRECT' | 'INCORRECT' | 'EXPIRED' | null
+
 interface GamePageState {
   round: Round | null
   challenge: RoundChallenge | null
   isLoading: boolean
   error: string | null
-  isExpired: boolean
   isSubmitting: boolean
-  guessResult: boolean | null
+  roundResult: RoundResultStatus
   guessError: string | null
   score: number | null
   totalScore: number | null
@@ -29,9 +30,8 @@ export default function Game({ gameId }: GameProps) {
     challenge: null,
     isLoading: false,
     error: null,
-    isExpired: false,
     isSubmitting: false,
-    guessResult: null,
+    roundResult: null,
     guessError: null,
     score: null,
     totalScore: null,
@@ -62,7 +62,7 @@ export default function Game({ gameId }: GameProps) {
           ...prev,
           challenge: challengeData,
           isLoading: false,
-          isExpired: false,
+          roundResult: null,
         }))
       } catch (error) {
         setState((prev) => ({
@@ -90,18 +90,18 @@ export default function Game({ gameId }: GameProps) {
   async function handleSubmitGuess(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
-    if (state.isExpired || state.isSubmitting || !state.round || !answer.trim()) {
+    if (state.roundResult || state.isSubmitting || !state.round || !answer.trim()) {
       return
     }
 
-    setState((prev) => ({ ...prev, isSubmitting: true, guessError: null, guessResult: null, score: null, totalScore: null }))
+    setState((prev) => ({ ...prev, isSubmitting: true, guessError: null, score: null, totalScore: null }))
 
     try {
       const result = await submitGuess(Number(gameId), state.round.id, answer)
       setState((prev) => ({
         ...prev,
         isSubmitting: false,
-        guessResult: result.isCorrect,
+        roundResult: result.isCorrect ? 'CORRECT' : 'INCORRECT',
         score: result.score,
         totalScore: result.totalScore,
       }))
@@ -157,33 +157,37 @@ export default function Game({ gameId }: GameProps) {
       <Timer
         startedAt={state.round.startedAt}
         durationSeconds={state.challenge.timeLimitSeconds}
-        onExpired={() => setState((prev) => ({ ...prev, isExpired: true }))}
+        isActive={state.roundResult === null}
+        onExpired={() => setState((prev) => ({ ...prev, roundResult: 'EXPIRED' }))}
       />
 
-      <form className="game-actions" onSubmit={handleSubmitGuess}>
-        <label className="answer-field">
-          Tu respuesta
-          <input
-            value={answer}
-            onChange={(event) => setAnswer(event.target.value)}
-            disabled={state.isExpired || state.isSubmitting}
-            autoComplete="off"
-            required
-          />
-        </label>
-        <GameButton type="submit" disabled={state.isExpired || state.isSubmitting || !answer.trim()}>
-          {state.isSubmitting ? 'Enviando...' : 'Enviar respuesta'}
-        </GameButton>
-      </form>
-
-      {state.isExpired && !state.guessResult && (
-        <p className="game-status">Tiempo agotado. La ronda ya no acepta respuestas.</p>
+      {state.roundResult === null && (
+        <form className="game-actions" onSubmit={handleSubmitGuess}>
+          <label className="answer-field">
+            Tu respuesta
+            <input
+              value={answer}
+              onChange={(event) => setAnswer(event.target.value)}
+              disabled={state.isSubmitting}
+              autoComplete="off"
+              required
+            />
+          </label>
+          <GameButton type="submit" disabled={state.isSubmitting || !answer.trim()}>
+            {state.isSubmitting ? 'Enviando...' : 'Enviar respuesta'}
+          </GameButton>
+        </form>
       )}
+
       {state.guessError && <p className="error">{state.guessError}</p>}
-      {state.guessResult !== null && (
+      {state.roundResult !== null && (
         <div className="game-status">
-          <p>{state.guessResult ? 'Respuesta correcta.' : 'Respuesta incorrecta.'}</p>
-          {state.score !== null && (
+          <p>
+            {state.roundResult === 'CORRECT' && 'Respuesta correcta.'}
+            {state.roundResult === 'INCORRECT' && 'Respuesta incorrecta.'}
+            {state.roundResult === 'EXPIRED' && 'Tiempo agotado. La ronda ya no acepta respuestas.'}
+          </p>
+          {state.roundResult !== 'EXPIRED' && state.score !== null && (
             <p>Puntuación: {state.score} (Total: {state.totalScore})</p>
           )}
         </div>
