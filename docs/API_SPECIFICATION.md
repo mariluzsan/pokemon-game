@@ -159,14 +159,18 @@ Respuesta correcta o incorrecta `200 OK`:
 ```
 
 **`isCorrect` (indica si la respuesta es correcta) puede ser `false` cuando la respuesta no coincide; en ese caso
-`score` es exactamente `0`. `score` es la puntuación acreditada por la ronda. `hintPenalty` es la suma de las penalizaciones persistidas para sus pistas, que ya fueron descontadas del acumulado al solicitarlas y la calcula exclusivamente el backend. `totalScore` es el total acumulado de la partida después de la operación. `status`
+`score` es exactamente `0`. `score` es la puntuación final acreditada por la ronda ya considerando las pistas persistidas para esa ronda. `hintPenalty` es la suma de las penalizaciones persistidas para sus pistas, que ya fueron descontadas del acumulado al solicitarlas y la calcula exclusivamente el backend. `totalScore` es el total acumulado de la partida después de la operación. `status`
  y `finishedAt` reflejan el estado persistido de la partida.**
 La comparación normaliza mayúsculas/minúsculas, espacios, guiones, puntuación,
 tildes y los símbolos de género para aceptar el nombre de presentación del
 Pokémon sin aceptar alias, traducciones ni nombres parciales.
 El endpoint no revela el nombre correcto. La ronda queda resuelta después del
 primer envío aceptado; el backend incrementa `current_round` y finaliza la
-partida al resolver la décima ronda.
+partida al resolver la décima ronda. El resultado final persistido de la partida
+queda representado por `games.player_name`, `games.total_score`, `games.status = 'FINISHED'`,
+`games.difficulty`, `games.started_at` y `games.finished_at`; `rounds.score` conserva el
+score final de cada ronda ya penalizado para que una partida finalizada pueda verificarse
+como `games.total_score = SUM(rounds.score)`.
 
 Errores previstos:
 

@@ -44,4 +44,5 @@ export interface RoundCompletion {
   totalScore: number
   status: Game['status']
   finishedAt: string | null
+  roundScore?: number
 }

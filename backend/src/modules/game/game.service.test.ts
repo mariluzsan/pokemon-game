@@ -4,7 +4,7 @@ import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, RoundNotE
 import { normalizePlayerName } from './game.service.js'
 import { ROUND_TIME_LIMIT_SECONDS } from './round.types.js'
 import { HINT_PENALTY_PER_HINT } from '../hints/hint.types.js'
-import { RoundAlreadyResolvedError } from './round.repository.js'
+import { calculatePersistedRoundScore, RoundAlreadyResolvedError } from './round.repository.js'
 import { RoundService, calculateScore } from './round.service.js'
 
 function testNormalizesPlayerName() {
@@ -505,6 +505,7 @@ async function testFinalRoundResultReportsFinishedGame() {
   const roundService = createGuessService({
     updateGuess: async () => ({
       hintPenalty: 0,
+      roundScore: 1500,
       totalScore: 9000,
       status: 'FINISHED',
       finishedAt: '2026-09-05T12:00:05.000Z',
@@ -714,9 +715,11 @@ async function testUsesPersistedHintPenaltyInsteadOfRoundSnapshot() {
     now: '2026-09-05T12:00:05.000Z',
     updateGuess: async (_roundId, _finishedAt, _timeTaken, _isCorrect, _gameId, calculatePersistedScore) => {
       const hintPenalty = HINT_PENALTY_PER_HINT * 3
+      const grossScore = calculatePersistedScore()
       return {
         hintPenalty,
-        totalScore: calculatePersistedScore(),
+        roundScore: grossScore - hintPenalty,
+        totalScore: grossScore,
         status: 'IN_PROGRESS',
         finishedAt: null,
       }
@@ -725,9 +728,30 @@ async function testUsesPersistedHintPenaltyInsteadOfRoundSnapshot() {
 
   const result = await roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'pikachu' })
 
-  assert.equal(result.score, 1416)
+  assert.equal(result.score, 1116)
   assert.equal(result.hintPenalty, 300)
-  assert.equal(result.totalScore, result.score)
+  assert.equal(result.totalScore, 1416)
+}
+
+function testCalculatePersistedRoundScoreWithoutHints() {
+  assert.deepEqual(calculatePersistedRoundScore(1416, 0), {
+    roundScore: 1416,
+    gameTotalIncrement: 1416,
+  })
+}
+
+function testCalculatePersistedRoundScoreWithHintsKeepsFinalRoundScoreConsistent() {
+  assert.deepEqual(calculatePersistedRoundScore(1416, 300), {
+    roundScore: 1116,
+    gameTotalIncrement: 1416,
+  })
+}
+
+function testCalculatePersistedRoundScoreAllowsZeroAsValidFinalResult() {
+  assert.deepEqual(calculatePersistedRoundScore(0, 300), {
+    roundScore: 0,
+    gameTotalIncrement: 0,
+  })
 }
 
 async function testSubmitsGuessWithScoreAndTotalScore() {
@@ -817,6 +841,9 @@ async function runTests() {
   testCalculateScoreDoesNotDeductHintsTwice()
   testCalculateScoreNeverBecomesNegativeWithHints()
   testCalculateScorePreservesDifficultyAndTimeBonuses()
+  testCalculatePersistedRoundScoreWithoutHints()
+  testCalculatePersistedRoundScoreWithHintsKeepsFinalRoundScoreConsistent()
+  testCalculatePersistedRoundScoreAllowsZeroAsValidFinalResult()
   await testUsesPersistedHintPenaltyInsteadOfRoundSnapshot()
   await testSubmitsGuessWithScoreAndTotalScore()
   await testRejectsSecondGuessForSameRound()

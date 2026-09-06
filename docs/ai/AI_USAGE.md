@@ -98,6 +98,18 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Persistencia del resultado final US-19
+
+- Objetivo: implementar exclusivamente US-19 asegurando que el resultado final de una partida terminada quede persistido de forma consistente, recuperable y reutilizable por US-20 sin crear una tabla adicional de ranking.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar criterios, arquitectura, esquema PostgreSQL, US-08, scoring, hints y flujo de finalización para validar si `games` ya era la fuente de verdad o si faltaba reforzar la persistencia final.
+- Resultado propuesto: reutilizar `games` como fuente autoritativa del resultado final y `rounds` como detalle histórico. Se detectó una brecha: `games.total_score` ya incorporaba penalizaciones de hints en tiempo real, pero `rounds.score` persistía el score bruto de resolución; con hints, una partida terminada no garantizaba `games.total_score = SUM(rounds.score)`.
+- Decisión: aceptada. `RoundRepository.updateGuess` ahora persiste `rounds.score` como score final de la ronda ya penalizado, mientras `games.total_score` conserva el acumulado correcto sin volver a descontar pistas. No se creó endpoint nuevo, tabla nueva ni UI nueva.
+- Decisiones descartadas: tabla `scores`/`results`/`leaderboard`, recalcular scoring desde frontend, nuevo botón de guardado, endpoint `POST /scores`, ranking anticipado y recalcular dificultad o performance al cerrar la partida.
+- Verificación: suite backend, build frontend, lint frontend con dos errores preexistentes no relacionados, `git diff --check`, `git status` y revisión manual del contrato observable de `/guess`.
+- Archivos afectados: `backend/src/modules/game/round.repository.ts`, `backend/src/modules/game/round.service.ts`, `backend/src/modules/game/round.types.ts`, `backend/src/modules/game/game.service.test.ts`, `docs/API_SPECIFICATION.md` y este registro.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
+
 ### 2026-09-06 - Seleccion de Pokemon por dificultad US-18
 
 - Objetivo: implementar exclusivamente US-18 para que la creación de una

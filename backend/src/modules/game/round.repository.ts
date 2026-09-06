@@ -26,6 +26,11 @@ interface PerformanceSnapshotRow extends QueryResultRow {
   total_hints_used: number
 }
 
+interface PersistedRoundScore {
+  roundScore: number
+  gameTotalIncrement: number
+}
+
 function mapRoundRow(row: RoundRow): Round {
   return {
     id: row.id,
@@ -41,6 +46,13 @@ export class RoundAlreadyResolvedError extends Error {
   constructor() {
     super('La ronda ya ha sido resuelta.')
     this.name = 'RoundAlreadyResolvedError'
+  }
+}
+
+export function calculatePersistedRoundScore(grossScore: number, hintPenalty: number): PersistedRoundScore {
+  return {
+    roundScore: Math.max(0, grossScore - hintPenalty),
+    gameTotalIncrement: grossScore,
   }
 }
 
@@ -218,14 +230,16 @@ export class RoundRepository {
          WHERE round_id = $1`,
         [roundId],
       )
-      const score = calculateScore()
+      const hintPenalty = hintPenaltyResult.rows[0].hint_penalty
+      const grossScore = calculateScore()
+      const persistedScore = calculatePersistedRoundScore(grossScore, hintPenalty)
 
       // Actualizar la ronda con score
       await client.query(
         `UPDATE rounds
          SET finished_at = $2, time_taken = $3, is_correct = $4, score = $5
          WHERE id = $1`,
-        [roundId, finishedAt, timeTaken, isCorrect, score],
+        [roundId, finishedAt, timeTaken, isCorrect, persistedScore.roundScore],
       )
 
       await this.adaptGameDifficulty(client, gameId)
@@ -239,7 +253,7 @@ export class RoundRepository {
              finished_at = CASE WHEN current_round >= $3 THEN $4 ELSE finished_at END
          WHERE id = $1
          RETURNING total_score, status, finished_at`,
-        [gameId, score, MAX_ROUNDS, finishedAt],
+        [gameId, persistedScore.gameTotalIncrement, MAX_ROUNDS, finishedAt],
       )
 
       const newTotalScore = updateGameResult.rows[0].total_score
@@ -247,10 +261,11 @@ export class RoundRepository {
       await client.query('COMMIT')
 
       return {
-        hintPenalty: hintPenaltyResult.rows[0].hint_penalty,
+        hintPenalty,
         totalScore: newTotalScore,
         status: updateGameResult.rows[0].status,
         finishedAt: updateGameResult.rows[0].finished_at?.toISOString() ?? null,
+        roundScore: persistedScore.roundScore,
       }
     } catch (error) {
       await client.query('ROLLBACK')

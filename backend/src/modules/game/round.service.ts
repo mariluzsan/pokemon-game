@@ -201,7 +201,7 @@ export class RoundService {
 
     return {
       isCorrect,
-      score,
+      score: roundCompletion.roundScore ?? score,
       hintPenalty: roundCompletion.hintPenalty,
       totalScore: roundCompletion.totalScore,
       status: roundCompletion.status,
