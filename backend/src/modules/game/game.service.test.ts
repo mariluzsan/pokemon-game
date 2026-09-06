@@ -3,6 +3,7 @@ import { PokemonApiError } from '../pokemon/pokemon.client.js'
 import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, RoundNotExpiredError, ValidationError } from './game.errors.js'
 import { normalizePlayerName } from './game.service.js'
 import { ROUND_TIME_LIMIT_SECONDS } from './round.types.js'
+import { HINT_PENALTY_PER_HINT } from '../hints/hint.types.js'
 import { RoundAlreadyResolvedError } from './round.repository.js'
 import { RoundService, calculateScore } from './round.service.js'
 
@@ -167,14 +168,14 @@ async function testExpiredRoundCanCompleteAndAdvance() {
         pokemonId: 25,
         finishedAt: null,
         isCorrect: null,
-        hintsUsed: 0,
+        hintsUsed: 3,
       }),
       updateGuess: async () => 0,
       expireRound: async (roundId, gameId, finishedAt) => {
         persistedRoundId = roundId
         persistedGameId = gameId
         assert.equal(finishedAt.toISOString(), '2026-09-05T12:00:30.000Z')
-        return { totalScore: 0, status: 'IN_PROGRESS', finishedAt: null }
+        return { hintPenalty: 300, totalScore: 0, status: 'IN_PROGRESS', finishedAt: null }
       },
     },
     {
@@ -187,7 +188,7 @@ async function testExpiredRoundCanCompleteAndAdvance() {
 
   const completion = await roundService.expireRound(7, 11)
 
-  assert.deepEqual(completion, { totalScore: 0, status: 'IN_PROGRESS', finishedAt: null })
+  assert.deepEqual(completion, { hintPenalty: 300, totalScore: 0, status: 'IN_PROGRESS', finishedAt: null })
   assert.equal(persistedRoundId, 11)
   assert.equal(persistedGameId, 7)
 }
@@ -325,7 +326,7 @@ function createGuessService(options: {
   round?: ReturnType<typeof createGuessRound> | null
   pokemonName?: string
   now?: string
-  updateGuess?: (roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, score: number) => Promise<number | { totalScore: number; status: 'IN_PROGRESS' | 'FINISHED'; finishedAt: string | null }>
+  updateGuess?: (roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, calculateScore: () => number) => Promise<number | { hintPenalty: number; totalScore: number; status: 'IN_PROGRESS' | 'FINISHED'; finishedAt: string | null }>
 } = {}) {
   return new RoundService(
     { findById: async () => createGame() },
@@ -346,8 +347,8 @@ function createGuessService(options: {
 async function testSubmitsCorrectGuessAndPersistsOnlyEvaluation() {
   let persisted: { roundId: number; timeTaken: number; isCorrect: boolean; score: number } | null = null
   const roundService = createGuessService({
-    updateGuess: async (roundId, _finishedAt, timeTaken, isCorrect, gameId, score) => {
-      persisted = { roundId, timeTaken, isCorrect, score }
+    updateGuess: async (roundId, _finishedAt, timeTaken, isCorrect, _gameId, calculatePersistedScore) => {
+      persisted = { roundId, timeTaken, isCorrect, score: calculatePersistedScore() }
       return 1234 // mock totalScore
     },
   })
@@ -363,6 +364,7 @@ async function testSubmitsCorrectGuessAndPersistsOnlyEvaluation() {
 async function testFinalRoundResultReportsFinishedGame() {
   const roundService = createGuessService({
     updateGuess: async () => ({
+      hintPenalty: 0,
       totalScore: 9000,
       status: 'FINISHED',
       finishedAt: '2026-09-05T12:00:05.000Z',
@@ -379,6 +381,7 @@ async function testFinalRoundResultReportsFinishedGame() {
 async function testAcceptsFormattedPokemonNames() {
   const formattedNames = [
     { answer: 'Koffing', pokemonName: 'koffing' },
+    { answer: 'Tadbulb', pokemonName: 'tadbulb' },
     { answer: 'Baxcalibur', pokemonName: 'baxcalibur' },
     { answer: 'Mr. Mime', pokemonName: 'mr-mime' },
     { answer: "Farfetch'd", pokemonName: 'farfetchd' },
@@ -400,7 +403,7 @@ async function testAcceptsFormattedPokemonNames() {
 async function testReturnsCorrectRoundResultWithoutRevealingPokemon() {
   const roundService = createGuessService({
     now: '2026-09-05T12:00:05.000Z',
-    updateGuess: async (_roundId, _finishedAt, _timeTaken, _isCorrect, _gameId, score) => score + 500,
+    updateGuess: async (_roundId, _finishedAt, _timeTaken, _isCorrect, _gameId, calculatePersistedScore) => calculatePersistedScore() + 500,
   })
 
   const result = await roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'pikachu' })
@@ -408,6 +411,7 @@ async function testReturnsCorrectRoundResultWithoutRevealingPokemon() {
   assert.deepEqual(result, {
     isCorrect: true,
     score: 1416,
+    hintPenalty: 0,
     totalScore: 1916,
     status: 'IN_PROGRESS',
     finishedAt: null,
@@ -550,23 +554,48 @@ function testCalculateScoreWithFlooringEffect() {
   assert.equal(score, 1483)
 }
 
-function testCalculateScoreAppliesHintPenalty() {
-  assert.equal(calculateScore(true, 'EASY', 5000, 1), 1316)
-  assert.equal(calculateScore(true, 'EASY', 5000, 3), 1116)
-  assert.equal(calculateScore(true, 'EASY', 0, 3), 1200)
+function testCalculateScoreDoesNotDeductHintsTwice() {
+  assert.equal(calculateScore(true, 'EASY', 5000), 1416)
+  assert.equal(calculateScore(true, 'EASY', 0), 1500)
 }
 
 function testCalculateScoreNeverBecomesNegativeWithHints() {
-  assert.equal(calculateScore(true, 'EASY', 30000, 3), 700)
-  assert.equal(calculateScore(false, 'HARD', 0, 3), 0)
+  assert.equal(calculateScore(true, 'EASY', 30000), 1000)
+  assert.equal(calculateScore(false, 'HARD', 0), 0)
+}
+
+function testCalculateScorePreservesDifficultyAndTimeBonuses() {
+  assert.equal(calculateScore(true, 'HARD', 5000), 1816)
+}
+
+async function testUsesPersistedHintPenaltyInsteadOfRoundSnapshot() {
+  const roundService = createGuessService({
+    round: createGuessRound({ hintsUsed: 0 }),
+    now: '2026-09-05T12:00:05.000Z',
+    updateGuess: async (_roundId, _finishedAt, _timeTaken, _isCorrect, _gameId, calculatePersistedScore) => {
+      const hintPenalty = HINT_PENALTY_PER_HINT * 3
+      return {
+        hintPenalty,
+        totalScore: calculatePersistedScore(),
+        status: 'IN_PROGRESS',
+        finishedAt: null,
+      }
+    },
+  })
+
+  const result = await roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'pikachu' })
+
+  assert.equal(result.score, 1416)
+  assert.equal(result.hintPenalty, 300)
+  assert.equal(result.totalScore, result.score)
 }
 
 async function testSubmitsGuessWithScoreAndTotalScore() {
   let persistedData: { score: number; totalScore: number } | null = null
   const roundService = createGuessService({
-    updateGuess: async (roundId, _finishedAt, timeTaken, isCorrect, gameId, score) => {
+    updateGuess: async (_roundId, _finishedAt, _timeTaken, _isCorrect, _gameId, calculatePersistedScore) => {
       // Mock to capture the score calculation
-      persistedData = { score, totalScore: 1234 } // totalScore is what would be returned
+      persistedData = { score: calculatePersistedScore(), totalScore: 1234 } // totalScore is what would be returned
       return 1234
     },
   })
@@ -577,6 +606,7 @@ async function testSubmitsGuessWithScoreAndTotalScore() {
   assert.equal(typeof result.score, 'number')
   assert.equal(typeof result.totalScore, 'number')
   assert.equal(result.totalScore, 1234)
+  assert.deepEqual(persistedData, { score: 1000, totalScore: 1234 })
 }
 
 async function testRejectsSecondGuessForSameRound() {
@@ -640,8 +670,10 @@ async function runTests() {
   testCalculateScoreWithMaxTimeBonus()
   testCalculateScoreWithZeroTimeBonus()
   testCalculateScoreWithFlooringEffect()
-  testCalculateScoreAppliesHintPenalty()
+  testCalculateScoreDoesNotDeductHintsTwice()
   testCalculateScoreNeverBecomesNegativeWithHints()
+  testCalculateScorePreservesDifficultyAndTimeBonuses()
+  await testUsesPersistedHintPenaltyInsteadOfRoundSnapshot()
   await testSubmitsGuessWithScoreAndTotalScore()
   await testRejectsSecondGuessForSameRound()
 

@@ -2,10 +2,92 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  min-height: 100vh;
-  padding: 1rem;
-  gap: 2rem;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 100svh;
+  padding: 0.75rem 1rem 1rem;
+  gap: 0.65rem;
+}
+
+.game-rules {
+  width: min(100%, 42rem);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.55rem 0.7rem;
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.game-rules h2 {
+  margin: 0 0 0.4rem;
+  color: var(--blue-dark);
+  font-family: var(--sans);
+  font-size: 0.82rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.game-rules__items {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.15rem;
+}
+
+.game-rules__items p {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  margin: 0;
+  padding: 0 0.4rem;
+  text-align: center;
+  border-left: 1px solid var(--line);
+}
+
+.game-rules__items p:first-child {
+  border-left: 0;
+}
+
+.game-rules__items strong {
+  color: var(--blue);
+  font-size: 0.85rem;
+}
+
+.game-rules__items span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
+@media (max-width: 640px) {
+  .game {
+    padding-top: 1.25rem;
+  }
+
+  .game-rules__items {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem 0;
+  }
+
+  .game-rules__items p:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .game-rules__items p:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .game-status__scores {
+    grid-template-columns: 1fr;
+  }
+
+  .game-status__scores p {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    text-align: left;
+  }
 }
 
 .game .loading {
@@ -23,7 +105,14 @@
 .game-actions {
   display: flex;
   align-items: end;
-  gap: 1rem;
+  width: min(100%, 42rem);
+  gap: 0.55rem;
+  padding: 0.7rem;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 20px rgba(26, 51, 75, 0.08);
   flex-wrap: wrap;
   justify-content: center;
 }
@@ -36,20 +125,89 @@
 }
 
 .answer-field input {
-  min-width: 14rem;
-  padding: 0.65rem;
+  box-sizing: border-box;
+  min-width: 13rem;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0.65rem 0.75rem;
+  font: inherit;
+}
+
+.answer-field input:focus {
+  border-color: var(--blue);
+  outline: 3px solid rgba(12, 114, 184, 0.18);
 }
 
 .game-status {
-  color: #2e7d32;
+  box-sizing: border-box;
+  width: min(100%, 32rem);
+  padding: 0.9rem 1.1rem;
+  border-radius: 8px;
+  border: 1px solid #a8d6c9;
+  color: #135d4c;
+  background: #eefaf5;
   font-weight: 600;
   text-align: center;
 }
 
-.hint-status {
-  color: #1565c0;
-  font-weight: 600;
+.game-status p + p {
+  margin-top: 0.45rem;
+}
+
+.game-status__heading {
   margin: 0;
+  font-family: var(--heading);
+  font-size: 1.25rem;
+}
+
+.game-status__scores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(19, 93, 76, 0.2);
+}
+
+.game-status__scores p {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0;
+}
+
+.game-status__scores span {
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.game-status__scores strong {
+  color: var(--ink);
+  font-size: 1.15rem;
+}
+
+.game-status--incorrect,
+.game-status--expired {
+  border-color: #edc9a4;
+  color: #89511f;
+  background: #fff7eb;
+}
+
+.game-status--incorrect .game-status__scores,
+.game-status--expired .game-status__scores {
+  border-top-color: rgba(137, 81, 31, 0.2);
+}
+
+.hint-status {
+  width: min(100%, 42rem);
+  margin: 0;
+  padding: 0.65rem 0.8rem;
+  box-sizing: border-box;
+  border-left: 4px solid var(--blue);
+  color: #12476e;
+  background: #ebf6ff;
+  font-weight: 600;
   text-align: center;
 }
 
@@ -57,4 +215,39 @@
   margin: 0;
   color: #4a5568;
   text-align: center;
+}
+
+.total-score {
+  margin: 0;
+  color: var(--blue-dark);
+  font-weight: 600;
+  text-align: center;
+}
+
+@media (min-width: 760px) and (min-height: 600px) {
+  .game {
+    display: grid;
+    grid-template-columns: minmax(19rem, 1fr) minmax(20rem, 1fr);
+    grid-template-areas:
+      "challenge timer"
+      "challenge rules"
+      "challenge hints"
+      "challenge total"
+      "challenge actions"
+      "challenge hint"
+      "challenge result";
+    align-content: center;
+    column-gap: 3rem;
+    max-width: 66rem;
+    margin: 0 auto;
+  }
+
+  .pokemon-challenge { grid-area: challenge; }
+  .round-timer { grid-area: timer; justify-self: start; }
+  .game-rules { grid-area: rules; }
+  .hint-usage { grid-area: hints; }
+  .total-score { grid-area: total; }
+  .game-actions { grid-area: actions; }
+  .hint-status { grid-area: hint; }
+  .game-status { grid-area: result; }
 }

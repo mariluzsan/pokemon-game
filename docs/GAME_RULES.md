@@ -19,9 +19,8 @@ El jugador intenta identificar un Pokémon en cada ronda.
 8. El resultado final puede ingresar al ranking.
 
 La puntuación de cada ronda sigue las reglas definidas en
-`SCORING_RULES.md`: el backend aplica la dificultad, el bonus por tiempo
-restante y la penalización por pistas antes de actualizar el total de la
-partida.
+`SCORING_RULES.md`: el backend descuenta cada pista del total al solicitarla y
+acredita los puntos por respuesta correcta según dificultad y tiempo restante.
 
 ## Pistas
 Máximo tres por ronda, progresivas, con penalización y sin revelar el nombre. Si la IA falla se utiliza fallback.

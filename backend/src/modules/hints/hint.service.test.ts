@@ -4,6 +4,7 @@ import { RoundAlreadyResolvedError } from '../game/round.repository.js'
 import { HintLimitReachedError } from './hint.errors.js'
 import { HintService } from './hint.service.js'
 import type { HintGenerator } from './hint.generator.js'
+import { HINT_PENALTY_PER_HINT } from './hint.types.js'
 
 function createGame(status: 'IN_PROGRESS' | 'FINISHED' = 'IN_PROGRESS') {
   return {
@@ -36,7 +37,7 @@ function createService(options: {
   game?: ReturnType<typeof createGame> | null
   round?: ReturnType<typeof createRound> | null
   now?: string
-  registerGeneratedHint?: (record: { id: number; gameId: number; createdAt: Date; generate: (level: number) => Promise<{ content: string; source: 'AI' | 'FALLBACK' }> }) => Promise<{ level: number; content: string; hintsUsed: number; hintsRemaining: number }>
+  registerGeneratedHint?: (record: { id: number; gameId: number; createdAt: Date; generate: (level: number) => Promise<{ content: string; source: 'AI' | 'FALLBACK' }> }) => Promise<{ level: number; content: string; penalty: number; totalScore: number; hintsUsed: number; hintsRemaining: number }>
   hintGenerator?: HintGenerator
 } = {}) {
   return new HintService(
@@ -44,7 +45,7 @@ function createService(options: {
     { findById: async () => options.round === undefined ? createRound() : options.round },
     { registerGeneratedHint: options.registerGeneratedHint ?? (async (record) => {
       const generated = await record.generate(1)
-      return { level: 1, content: generated.content, hintsUsed: 1, hintsRemaining: 2 }
+      return { level: 1, content: generated.content, penalty: 100, totalScore: 0, hintsUsed: 1, hintsRemaining: 2 }
     }) },
     () => new Date(options.now ?? '2026-09-06T12:00:29.999Z'),
     { getPokemonHintData: async () => ({ name: 'pikachu', types: ['electric'] }) },
@@ -58,11 +59,11 @@ async function testRequestsPendingHintWithoutSensitiveData() {
     registerGeneratedHint: async (record) => {
       request = { id: record.id, gameId: record.gameId, createdAt: record.createdAt }
       const generated = await record.generate(1)
-      return { level: 1, content: generated.content, hintsUsed: 1, hintsRemaining: 2 }
+      return { level: 1, content: generated.content, penalty: 100, totalScore: 0, hintsUsed: 1, hintsRemaining: 2 }
     },
   }).requestHint({ gameId: 7, roundId: 11 })
 
-  assert.deepEqual(hint, { level: 1, content: 'Pista generada para identificarlo.', hintsUsed: 1, hintsRemaining: 2 })
+  assert.deepEqual(hint, { level: 1, content: 'Pista generada para identificarlo.', penalty: 100, totalScore: 0, hintsUsed: 1, hintsRemaining: 2 })
   assert.deepEqual(request, {
     id: 11,
     gameId: 7,
@@ -70,6 +71,10 @@ async function testRequestsPendingHintWithoutSensitiveData() {
   })
   assert.equal('pokemonId' in hint, false)
   assert.equal('pokemonName' in hint, false)
+}
+
+function testUsesConfiguredPenaltyPerHint() {
+  assert.equal(HINT_PENALTY_PER_HINT, 100)
 }
 
 async function testDoesNotModifyScores() {
@@ -146,7 +151,7 @@ async function testAssignsTheNextLevelAndAuthoritativeCounters() {
       registerGeneratedHint: async (record) => {
         const level = hintsUsed + 1
         const generated = await record.generate(level)
-        return { level, content: generated.content, hintsUsed: level, hintsRemaining: 3 - level }
+        return { level, content: generated.content, penalty: 100, totalScore: 0, hintsUsed: level, hintsRemaining: 3 - level }
       },
     }).requestHint({ gameId: 7, roundId: 11 })
 
@@ -154,6 +159,8 @@ async function testAssignsTheNextLevelAndAuthoritativeCounters() {
     assert.deepEqual(hint, {
       level: hintsUsed + 1,
       content: `Pista progresiva numero ${hintsUsed + 1}.`,
+      penalty: 100,
+      totalScore: 0,
       hintsUsed: hintsUsed + 1,
       hintsRemaining: 2 - hintsUsed,
     })
@@ -185,7 +192,7 @@ async function testFailedGenerationDoesNotConsumeHint() {
       registerGeneratedHint: async (record) => {
         const generated = await record.generate(hintsUsed + 1)
         hintsUsed += 1
-        return { level: hintsUsed, content: generated.content, hintsUsed, hintsRemaining: 3 - hintsUsed }
+        return { level: hintsUsed, content: generated.content, penalty: 100, totalScore: 0, hintsUsed, hintsRemaining: 3 - hintsUsed }
       },
     }).requestHint({ gameId: 7, roundId: 11 }),
     /Fallo tecnico simulado/,
@@ -209,7 +216,7 @@ async function testConcurrentRequestsWithOneHintLeftGenerateOnlyOneHint() {
       const level = hintsUsed + 1
       const generated = await record.generate(level)
       hintsUsed = level
-      return { level, content: generated.content, hintsUsed, hintsRemaining: 3 - hintsUsed }
+      return { level, content: generated.content, penalty: 100, totalScore: 0, hintsUsed, hintsRemaining: 3 - hintsUsed }
     } finally {
       releaseLock?.()
     }
@@ -233,6 +240,7 @@ async function testConcurrentRequestsWithOneHintLeftGenerateOnlyOneHint() {
 }
 
 async function runTests() {
+  testUsesConfiguredPenaltyPerHint()
   await testRequestsPendingHintWithoutSensitiveData()
   await testDoesNotModifyScores()
   await testSendsOnlyPokemonHintDataToGenerator()

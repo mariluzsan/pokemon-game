@@ -104,7 +104,14 @@ export class RoundRepository {
     }
   }
 
-  async updateGuess(roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, score: number): Promise<RoundCompletion> {
+  async updateGuess(
+    roundId: number,
+    finishedAt: Date,
+    timeTaken: number,
+    isCorrect: boolean,
+    gameId: number,
+    calculateScore: () => number,
+  ): Promise<RoundCompletion> {
     const client = await pool.connect()
 
     try {
@@ -126,6 +133,14 @@ export class RoundRepository {
         await client.query('ROLLBACK')
         throw new RoundAlreadyResolvedError()
       }
+
+      const hintPenaltyResult = await client.query<{ hint_penalty: number }>(
+        `SELECT COALESCE(SUM(penalty), 0)::INTEGER AS hint_penalty
+         FROM hints
+         WHERE round_id = $1`,
+        [roundId],
+      )
+      const score = calculateScore()
 
       // Actualizar la ronda con score
       await client.query(
@@ -152,6 +167,7 @@ export class RoundRepository {
       await client.query('COMMIT')
 
       return {
+        hintPenalty: hintPenaltyResult.rows[0].hint_penalty,
         totalScore: newTotalScore,
         status: updateGameResult.rows[0].status,
         finishedAt: updateGameResult.rows[0].finished_at?.toISOString() ?? null,
@@ -188,8 +204,15 @@ export class RoundRepository {
           `SELECT total_score, status, finished_at FROM games WHERE id = $1`,
           [gameId],
         )
+        const hintPenaltyResult = await client.query<{ hint_penalty: number }>(
+          `SELECT COALESCE(SUM(penalty), 0)::INTEGER AS hint_penalty
+           FROM hints
+           WHERE round_id = $1`,
+          [roundId],
+        )
         await client.query('COMMIT')
         return {
+          hintPenalty: hintPenaltyResult.rows[0].hint_penalty,
           totalScore: gameResult.rows[0].total_score,
           status: gameResult.rows[0].status,
           finishedAt: gameResult.rows[0].finished_at?.toISOString() ?? null,
@@ -213,8 +236,16 @@ export class RoundRepository {
         [gameId, MAX_ROUNDS, finishedAt],
       )
 
+      const hintPenaltyResult = await client.query<{ hint_penalty: number }>(
+        `SELECT COALESCE(SUM(penalty), 0)::INTEGER AS hint_penalty
+         FROM hints
+         WHERE round_id = $1`,
+        [roundId],
+      )
+
       await client.query('COMMIT')
       return {
+        hintPenalty: hintPenaltyResult.rows[0].hint_penalty,
         totalScore: gameResult.rows[0].total_score,
         status: gameResult.rows[0].status,
         finishedAt: gameResult.rows[0].finished_at?.toISOString() ?? null,

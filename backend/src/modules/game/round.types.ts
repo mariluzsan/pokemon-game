@@ -33,12 +33,14 @@ export interface SubmitGuessInput {
 export interface GuessResult {
   isCorrect: boolean
   score: number
+  hintPenalty: number
   totalScore: number
   status: Game['status']
   finishedAt: string | null
 }
 
 export interface RoundCompletion {
+  hintPenalty: number
   totalScore: number
   status: Game['status']
   finishedAt: string | null

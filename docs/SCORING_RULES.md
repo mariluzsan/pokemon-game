@@ -10,40 +10,52 @@ La puntuación se calcula exclusivamente en backend.
 - **Penalización por pista: `100` puntos por cada pista utilizada.**
 - **La penalización máxima por pistas es `300` puntos porque una ronda permite como máximo tres pistas.**
 
-## Cambios US-06: fórmula y límites
+## Penalización inmediata por pistas
 
-Solo una respuesta correcta puede obtener una puntuación mayor que cero:
+Cada solicitud válida de pista persiste `hints.penalty = 100` y descuenta ese
+valor inmediatamente de `games.total_score`, sin permitir que el acumulado sea
+negativo. La operación se realiza junto con la persistencia de la pista y la
+actualización de `rounds.hints_used` en una única transacción.
+
+El costo se aplica una única vez al solicitar la pista. Solo una respuesta
+correcta puede acreditar puntuación de ronda:
 
 ```text
 elapsedMs = finishedAt - startedAt
 remainingMs = max(0, 30_000 - elapsedMs)
 timeBonus = floor(500 * remainingMs / 30_000)
-hintPenalty = hintsUsed * 100
+hintPenalty = SUM(hints.penalty)
+
+on each valid hint:
+  games.totalScore = max(0, games.totalScore - 100)
 
 if isCorrect:
-	score = max(0, 1000 + difficultyBonus + timeBonus - hintPenalty)
+	roundScore = 1000 + difficultyBonus + timeBonus
+	games.totalScore = games.totalScore + roundScore
 else:
-	score = 0
+	roundScore = 0
 ```
 
 El tiempo se calcula con milisegundos usando el reloj del backend. El único
-redondeo es `floor` aplicado a `timeBonus`; la puntuación final no se redondea
-porque ya es un entero. Una respuesta recibida con `elapsedMs >= 30_000` se
-rechaza como ronda expirada, por lo que una respuesta correcta exactamente en
-el límite no obtiene puntos.
+redondeo es `floor` aplicado a `timeBonus`; la puntuación de ronda no se
+redondea porque ya es un entero. Una respuesta recibida con `elapsedMs >=
+30_000` se rechaza como ronda expirada. Una respuesta incorrecta o una ronda
+expirada obtiene `roundScore = 0`; las penalizaciones ya aplicadas por sus
+pistas permanecen reflejadas en el total.
 
 ## Invariantes
 - nunca negativa;
 - una respuesta incorrecta no recibe el beneficio de una correcta;
-- utilizar más pistas no aumenta la puntuación;
+- cada pista reduce el acumulado como máximo una vez;
 - las reglas son deterministas y comprobables mediante pruebas;
 - una ronda resuelta no puede volver a puntuar.
 
 Modelo conceptual:
 ```text
-score = max(0, baseScore + difficultyBonus + timeBonus - hintPenalty)
+totalScore = max(0, totalScoreAnterior - hintPenaltySolicitada) + roundScore
 ```
 
-**`rounds.score` y `games.total_score` se actualizan en una única transacción,**
-con la ronda bloqueada para impedir doble puntuación concurrente. Si la
-transacción falla, ninguno de los dos valores cambia.
+**La solicitud de pista y la actualización de `games.total_score` son atómicas.**
+La resolución de una respuesta actualiza `rounds.score` y acredita ese mismo
+`roundScore` en `games.total_score` en una segunda transacción, con la ronda
+bloqueada para impedir doble puntuación concurrente.

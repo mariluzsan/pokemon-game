@@ -28,12 +28,14 @@ export interface RoundChallenge {
 export interface GuessResult {
   isCorrect: boolean
   score: number
+  hintPenalty: number
   totalScore: number
   status: 'IN_PROGRESS' | 'FINISHED'
   finishedAt: string | null
 }
 
 export interface RoundCompletion {
+  hintPenalty: number
   totalScore: number
   status: 'IN_PROGRESS' | 'FINISHED'
   finishedAt: string | null
@@ -42,6 +44,8 @@ export interface RoundCompletion {
 export interface Hint {
   level: number
   content: string
+  penalty: number
+  totalScore: number
   hintsUsed: number
   hintsRemaining: number
 }

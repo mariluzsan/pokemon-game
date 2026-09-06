@@ -4,6 +4,7 @@ import { GameRepository } from './game.repository.js'
 import { RoundAlreadyResolvedError, RoundRepository } from './round.repository.js'
 import { MAX_ROUNDS, ROUND_TIME_LIMIT_SECONDS, type CreateRoundInput, type GuessResult, type Round, type RoundChallenge, type RoundCompletion, type SubmitGuessInput } from './round.types.js'
 import { PokemonApiClient } from '../pokemon/pokemon.client.js'
+import { HINT_PENALTY_PER_HINT } from '../hints/hint.types.js'
 
 interface GameReader {
   findById(id: number): ReturnType<GameRepository['findById']>
@@ -12,7 +13,7 @@ interface GameReader {
 interface RoundWriter {
   create(gameId: number, roundNumber: number, pokemonId: number, difficulty: Round['difficulty']): Promise<Round>
   findById(roundId: number): ReturnType<RoundRepository['findById']>
-  updateGuess(roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, score: number): Promise<RoundCompletion | number>
+  updateGuess(roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, calculateScore: () => number): Promise<RoundCompletion | number>
   expireRound?(roundId: number, gameId: number, finishedAt: Date): Promise<RoundCompletion>
 }
 
@@ -35,7 +36,6 @@ export function calculateScore(
   isCorrect: boolean,
   difficulty: string,
   elapsedMilliseconds: number,
-  hintsUsed = 0,
 ): number {
   if (!isCorrect) {
     return 0
@@ -45,9 +45,7 @@ export function calculateScore(
   const difficultyBonus = DIFFICULTY_BONUS[difficulty] ?? 0
   const remainingMs = Math.max(0, TIME_BONUS_DIVISOR - elapsedMilliseconds)
   const timeBonus = Math.floor((TIME_BONUS_COEFFICIENT * remainingMs) / TIME_BONUS_DIVISOR)
-  const hintPenalty = hintsUsed * 100
-
-  return Math.max(0, baseScore + difficultyBonus + timeBonus - hintPenalty)
+  return baseScore + difficultyBonus + timeBonus
 }
 
 export class RoundService {
@@ -171,11 +169,21 @@ export class RoundService {
     const pokemonName = await this.pokemonPicker.getPokemonName(round.pokemonId)
     const isCorrect = normalizeGuess(input.answer) === normalizeGuess(pokemonName)
     const timeTaken = Math.max(0, Math.floor(elapsedMilliseconds / 1000))
-    const score = calculateScore(isCorrect, round.difficulty, elapsedMilliseconds, round.hintsUsed)
+    let score = 0
 
     let completion: RoundCompletion | number
     try {
-      completion = await this.roundRepository.updateGuess(input.roundId, finishedAt, timeTaken, isCorrect, input.gameId, score)
+      completion = await this.roundRepository.updateGuess(
+        input.roundId,
+        finishedAt,
+        timeTaken,
+        isCorrect,
+        input.gameId,
+        () => {
+          score = calculateScore(isCorrect, round.difficulty, elapsedMilliseconds)
+          return score
+        },
+      )
     } catch (error) {
       if (error instanceof RoundAlreadyResolvedError) {
         throw error
@@ -184,12 +192,13 @@ export class RoundService {
     }
 
     const roundCompletion = typeof completion === 'number'
-      ? { totalScore: completion, status: 'IN_PROGRESS' as const, finishedAt: null }
+      ? { hintPenalty: 0, totalScore: completion, status: 'IN_PROGRESS' as const, finishedAt: null }
       : completion
 
     return {
       isCorrect,
       score,
+      hintPenalty: roundCompletion.hintPenalty,
       totalScore: roundCompletion.totalScore,
       status: roundCompletion.status,
       finishedAt: roundCompletion.finishedAt,
@@ -208,6 +217,7 @@ export class RoundService {
 
     if (game.status !== 'IN_PROGRESS') {
       return {
+        hintPenalty: 0,
         totalScore: game.totalScore,
         status: game.status,
         finishedAt: game.finishedAt,
@@ -221,6 +231,7 @@ export class RoundService {
 
     if (round.finishedAt) {
       return {
+        hintPenalty: 0,
         totalScore: game.totalScore,
         status: game.status,
         finishedAt: game.finishedAt,

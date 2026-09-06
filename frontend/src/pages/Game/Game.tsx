@@ -25,6 +25,7 @@ interface GamePageState {
   hintError: string | null
   hintsUsed: number
   hintsRemaining: number | null
+  hintPenalty: number | null
   score: number | null
   totalScore: number | null
   gameStatus: 'IN_PROGRESS' | 'FINISHED'
@@ -46,6 +47,7 @@ export default function Game({ gameId }: GameProps) {
     hintError: null,
     hintsUsed: 0,
     hintsRemaining: null,
+    hintPenalty: null,
     score: null,
     totalScore: null,
     gameStatus: 'IN_PROGRESS',
@@ -67,6 +69,7 @@ export default function Game({ gameId }: GameProps) {
       hintError: null,
       hintsUsed: 0,
       hintsRemaining: null,
+      hintPenalty: null,
       score: null,
       totalScore: null,
     }))
@@ -133,6 +136,7 @@ export default function Game({ gameId }: GameProps) {
         isSubmitting: false,
         roundResult: result.isCorrect ? 'CORRECT' : 'INCORRECT',
         score: result.score,
+        hintPenalty: result.hintPenalty,
         totalScore: result.totalScore,
         gameStatus: result.status,
       }))
@@ -188,6 +192,7 @@ export default function Game({ gameId }: GameProps) {
         ...prev,
         roundResult: 'EXPIRED',
         score: 0,
+        hintPenalty: completion.hintPenalty,
         totalScore: completion.totalScore,
         gameStatus: completion.status,
         hintError: null,
@@ -214,6 +219,8 @@ export default function Game({ gameId }: GameProps) {
         isRequestingHint: false,
         hintLevel: hint.level,
         hintContent: hint.content,
+        hintPenalty: hint.penalty,
+        totalScore: hint.totalScore,
         hintsUsed: hint.hintsUsed,
         hintsRemaining: hint.hintsRemaining,
       }))
@@ -241,12 +248,26 @@ export default function Game({ gameId }: GameProps) {
         onExpired={() => { void handleRoundExpired() }}
       />
 
+      <section className="game-rules" aria-labelledby="game-rules-title">
+        <h2 id="game-rules-title">Puntuación de la ronda</h2>
+        <div className="game-rules__items">
+          <p><strong>30 s</strong><span>para responder</span></p>
+          <p><strong>1000</strong><span>puntos base</span></p>
+          <p><strong>+ bonus</strong><span>por dificultad y tiempo</span></p>
+          <p><strong>-100</strong><span>por pista, hasta 3</span></p>
+          <p><strong>0 puntos</strong><span>si fallas o expira</span></p>
+        </div>
+      </section>
+
       {state.roundResult === null && (
         <>
           <p className="hint-usage">
             Pistas usadas: {state.hintsUsed}.
             {state.hintsRemaining !== null && ` Restantes: ${state.hintsRemaining}.`}
           </p>
+          {state.totalScore !== null && (
+            <p className="total-score">Total acumulado: {state.totalScore}</p>
+          )}
           <form className="game-actions" onSubmit={handleSubmitGuess}>
             <label className="answer-field">
               Tu respuesta
@@ -274,21 +295,29 @@ export default function Game({ gameId }: GameProps) {
 
       {state.guessError && <p className="error">{state.guessError}</p>}
       {state.hintLevel !== null && (
-        <p className="hint-status">Pista {state.hintLevel}: {state.hintContent}</p>
+        <p className="hint-status">Pista {state.hintLevel}: {state.hintContent} (-{state.hintPenalty ?? 0} puntos)</p>
       )}
       {state.hintError && <p className="error">{state.hintError}</p>}
       {state.roundResult !== null && (
-        <div className="game-status">
-          <p>
+        <div className={`game-status game-status--${state.roundResult.toLowerCase()}`}>
+          <p className="game-status__heading">
             {state.roundResult === 'CORRECT' && 'Respuesta correcta.'}
             {state.roundResult === 'INCORRECT' && 'Respuesta incorrecta.'}
             {state.roundResult === 'EXPIRED' && 'Tiempo agotado. La ronda ya no acepta respuestas.'}
           </p>
           {state.roundResult !== 'EXPIRED' && state.score !== null && (
-            <p>Puntuación: {state.score} (Total: {state.totalScore})</p>
+            <div className="game-status__scores">
+              <p><span>Puntos de ronda</span><strong>{state.score}</strong></p>
+              <p><span>Penalización por pistas</span><strong>-{state.hintPenalty ?? 0}</strong></p>
+              <p><span>Total acumulado</span><strong>{state.totalScore}</strong></p>
+            </div>
           )}
           {state.roundResult === 'EXPIRED' && state.totalScore !== null && (
-            <p>Puntuación: 0 (Total: {state.totalScore})</p>
+            <div className="game-status__scores">
+              <p><span>Puntos de ronda</span><strong>0</strong></p>
+              <p><span>Penalización por pistas</span><strong>-{state.hintPenalty ?? 0}</strong></p>
+              <p><span>Total acumulado</span><strong>{state.totalScore}</strong></p>
+            </div>
           )}
           {state.gameStatus === 'FINISHED' ? (
             <p className="game-status__final">Partida terminada. Puntuación final: {state.totalScore}</p>

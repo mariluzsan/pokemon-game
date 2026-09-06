@@ -61,6 +61,17 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Penalizacion por pistas US-12
+- Objetivo: aplicar exclusivamente la penalizacion configurada por cada pista al score final de la ronda.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar criterios de US-12, formula de US-06, ADRs, esquema PostgreSQL, flujo de pistas y concurrencia; persistir la penalizacion en backend sin adelantar US-13 ni US-14.
+- Resultado propuesto: cada pista persiste `100` en `hints.penalty` y reduce `games.total_score` en la misma transaccion que registra la pista, limitado a cero. La resolucion conserva el score acreditado por respuesta correcta sin cobrar nuevamente las pistas.
+- Decision: modificada por el Tech Lead durante la prueba manual. El contrato de `/hints` devuelve `penalty` y `totalScore` posteriores a la deduccion; `/guess` y `/expire` incluyen `hintPenalty` para informar el costo acumulado.
+- Decisiones descartadas: penalizacion enviada o calculada por frontend, doble descuento al resolver la ronda, migracion adicional, cambios de dificultad/bono temporal, validacion adicional de spoilers y fallback nuevo.
+- Verificacion: pruebas deterministas de score sin pistas, una, dos y tres pistas, score no negativo, respuesta incorrecta, expiracion, bonos existentes y uso de penalizacion persistida; compilacion backend, build/lint frontend, revision de editor y SQL manual.
+- Archivos afectados: `backend/src/modules/game/round.service.ts`, `backend/src/modules/game/round.repository.ts`, `backend/src/modules/game/game.service.test.ts`, `backend/src/modules/hints/hint.repository.ts`, `backend/src/modules/hints/hint.types.ts`, `backend/src/modules/hints/hint.service.test.ts`, `MANUAL_TEST_PLAN_US12.md` y este registro.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
+
 ### 2026-09-06 - Limite de pistas por ronda US-11
 - Objetivo: implementar exclusivamente el limite de tres pistas por ronda,
   manteniendo el backend como autoridad y sin aplicar penalizaciones.

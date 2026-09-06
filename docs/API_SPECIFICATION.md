@@ -150,6 +150,7 @@ Respuesta correcta o incorrecta `200 OK`:
   "guess": {
     "isCorrect": true,
     "score": 1516,
+    "hintPenalty": 0,
     "totalScore": 1516,
     "status": "IN_PROGRESS",
     "finishedAt": null
@@ -158,8 +159,7 @@ Respuesta correcta o incorrecta `200 OK`:
 ```
 
 **`isCorrect` (indica si la respuesta es correcta) puede ser `false` cuando la respuesta no coincide; en ese caso
-`score` es exactamente `0`. `score` es la puntuación de la ronda y
-`totalScore` es el total acumulado de la partida después de la operación. `status`
+`score` es exactamente `0`. `score` es la puntuación acreditada por la ronda. `hintPenalty` es la suma de las penalizaciones persistidas para sus pistas, que ya fueron descontadas del acumulado al solicitarlas y la calcula exclusivamente el backend. `totalScore` es el total acumulado de la partida después de la operación. `status`
  y `finishedAt` reflejan el estado persistido de la partida.**
 La comparación normaliza mayúsculas/minúsculas, espacios, guiones, puntuación,
 tildes y los símbolos de género para aceptar el nombre de presentación del
@@ -183,13 +183,14 @@ Errores previstos:
 
 Registra una ronda que alcanzó el límite de tiempo. La operación es idempotente
 si la ronda ya fue resuelta en una solicitud concurrente. La expiración obtiene
-`score: 0`, incrementa `current_round` y, si era la décima ronda, finaliza la partida.
+`score: 0`, informa la penalización de pistas registrada sin reducir el total acumulado, incrementa `current_round` y, si era la décima ronda, finaliza la partida.
 
 Respuesta exitosa `200 OK`:
 
 ```json
 {
   "completion": {
+    "hintPenalty": 300,
     "totalScore": 0,
     "status": "IN_PROGRESS",
     "finishedAt": null
@@ -217,6 +218,8 @@ Respuesta exitosa `201 Created`:
   "hint": {
     "level": 1,
     "content": "Observa los rasgos asociados con su tipo y su silueta característica.",
+    "penalty": 100,
+    "totalScore": 900,
     "hintsUsed": 1,
     "hintsRemaining": 2
   }
@@ -224,8 +227,10 @@ Respuesta exitosa `201 Created`:
 ```
 
 La respuesta no incluye `pokemonId`, `pokemon_id`, el nombre ni la respuesta
-correcta. `content` contiene la pista validada; `hintsUsed` y `hintsRemaining`
-son calculados por el backend después de la persistencia. Su origen se conserva
+correcta. `content`, `penalty`, `totalScore`, `hintsUsed` y `hintsRemaining`
+son calculados por el backend después de la persistencia. `penalty` es el costo
+de la pista solicitada y `totalScore` ya refleja su descuento, limitado a cero.
+Su origen se conserva
 solo en la base de datos mediante `source` (`AI` o `FALLBACK`).
 
 Errores previstos:

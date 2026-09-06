@@ -9,7 +9,7 @@ interface GameButtonProps {
 
 function GameButton({ children, onClick, disabled = false, type = 'button' }: GameButtonProps) {
   return (
-    <button type={type} onClick={onClick} disabled={disabled}>
+    <button className="game-button" type={type} onClick={onClick} disabled={disabled}>
       {children}
     </button>
   )

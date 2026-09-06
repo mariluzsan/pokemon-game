@@ -1,29 +1,30 @@
 .round-timer {
   display: flex;
   align-items: baseline;
-  gap: 0.75rem;
-  min-height: 3rem;
-  padding: 0.75rem 1rem;
-  border: 2px solid #2f7d67;
-  border-radius: 0.5rem;
-  color: #173f35;
-  background: #e8f5ef;
+  gap: 0.55rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid #a9d6ca;
+  border-radius: 999px;
+  color: #125746;
+  background: #e7f7f0;
 }
 
 .round-timer__label {
-  font-size: 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .round-timer strong {
   min-width: 3ch;
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   text-align: right;
 }
 
 .round-timer--expired {
-  border-color: #b42318;
-  color: #7a271a;
-  background: #fef3f2;
+  border-color: #f0b2ab;
+  color: #8f251d;
+  background: #fff0ed;
 }
 
 .round-timer__status {

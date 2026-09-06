@@ -37,33 +37,30 @@ function Home() {
 
   return (
     <main className="home">
-      <GameTitle />
+      <div className="home__content">
+        <GameTitle />
 
-      <form className="home-actions" onSubmit={handleStartGame}>
-        <label className="player-name-field">
-          Nombre del jugador
-          <input
-            value={playerName}
-            onChange={(event) => setPlayerName(event.target.value)}
-            maxLength={100}
-            required
-          />
-        </label>
+        <form className="home-actions" onSubmit={handleStartGame}>
+          <p className="home-actions__label">Comienza una partida</p>
+          <label className="player-name-field">
+            Nombre del jugador
+            <input
+              value={playerName}
+              onChange={(event) => setPlayerName(event.target.value)}
+              maxLength={100}
+              placeholder="Escribe tu nombre"
+              required
+            />
+          </label>
 
-        <GameButton type="submit" disabled={isStarting}>
-          {isStarting ? 'Iniciando...' : 'Iniciar partida'}
-        </GameButton>
+          <GameButton type="submit" disabled={isStarting}>
+            {isStarting ? 'Iniciando...' : 'Jugar ahora'}
+          </GameButton>
+        </form>
 
-        <GameButton>
-          Ver ranking
-        </GameButton>
-      </form>
-
-      {error && (
-        <p className="home-error">
-          {error}
-        </p>
-      )}
+        {error && <p className="home-error">{error}</p>}
+      </div>
+      <p className="home__footnote">10 rondas · 30 segundos por ronda · hasta 3 pistas</p>
     </main>
   )
 }

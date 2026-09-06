@@ -3,7 +3,7 @@ import { GameNotInProgressError, RoundExpiredError, ValidationError } from '../g
 import { RoundAlreadyResolvedError } from '../game/round.repository.js'
 import { ROUND_TIME_LIMIT_SECONDS } from '../game/round.types.js'
 import { HintLimitReachedError } from './hint.errors.js'
-import { MAX_HINTS_PER_ROUND, type Hint } from './hint.types.js'
+import { HINT_PENALTY_PER_HINT, MAX_HINTS_PER_ROUND, type Hint } from './hint.types.js'
 import type { GeneratedHint } from './hint.generator.js'
 
 interface RequestHintRecord {
@@ -67,9 +67,9 @@ export class HintRepository {
       const level = round.hints_used + 1
       const generated = await record.generate(level)
       await client.query(
-        `INSERT INTO hints (round_id, level, source, content)
-         VALUES ($1, $2, $3, $4)`,
-        [record.id, level, generated.source, generated.content],
+        `INSERT INTO hints (round_id, level, source, penalty, content)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [record.id, level, generated.source, HINT_PENALTY_PER_HINT, generated.content],
       )
       await client.query(
         `UPDATE rounds
@@ -77,11 +77,20 @@ export class HintRepository {
          WHERE id = $1`,
         [record.id, level],
       )
+      const gameScoreResult = await client.query<{ total_score: number }>(
+        `UPDATE games
+         SET total_score = GREATEST(0, total_score - $2)
+         WHERE id = $1
+         RETURNING total_score`,
+        [record.gameId, HINT_PENALTY_PER_HINT],
+      )
 
       await client.query('COMMIT')
       return {
         level,
         content: generated.content,
+        penalty: HINT_PENALTY_PER_HINT,
+        totalScore: gameScoreResult.rows[0].total_score,
         hintsUsed: level,
         hintsRemaining: MAX_HINTS_PER_ROUND - level,
       }
