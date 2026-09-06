@@ -3,8 +3,11 @@ import cors from 'cors'
 import { testDatabaseConnection } from './infrastructure/database/database.js'
 
 const app = express()
+const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:5173'
 
-app.use(cors())
+app.use(cors({
+  origin: frontendOrigin,
+}))
 app.use(express.json())
 
 app.get('/api/health', async (_req, res) => {
@@ -19,8 +22,8 @@ app.get('/api/health', async (_req, res) => {
         currentTime: database.current_time,
       },
     })
-  } catch (error) {
-    console.error('Error de conexión con PostgreSQL:', error)
+  } catch {
+    console.error('Error de conexion con PostgreSQL')
 
     res.status(503).json({
       status: 'error',

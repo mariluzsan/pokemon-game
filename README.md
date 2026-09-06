@@ -225,11 +225,29 @@ Durante desarrollo, Vite mostrará en consola la URL local disponible.
 
 ### Backend
 
-La inicialización y los comandos definitivos del backend se documentarán aquí cuando se complete su configuración. No se incluyen comandos ficticios antes de que existan en `backend/package.json`.
+El backend ya utiliza Express con TypeScript y expone un endpoint de salud.
+
+Desde la raíz del repositorio:
+
+```powershell
+cd backend
+npm install
+npm run dev
+```
+
+Por defecto el servidor escucha en `http://localhost:3000`.
 
 ### PostgreSQL
 
-PostgreSQL debe estar instalado y ejecutándose localmente. La creación de la base de datos, esquema y variables de conexión se documentará cuando se implemente la capa de persistencia.
+PostgreSQL debe estar instalado y ejecutándose localmente. La conexión se configura con las variables definidas en `.env.example`.
+
+La migración inicial se encuentra en:
+
+```text
+backend/src/infrastructure/database/migrations/001_initial_schema.sql
+```
+
+El endpoint `GET /api/health` verifica la conexión entre backend y PostgreSQL.
 
 ## Variables de entorno
 
@@ -405,7 +423,7 @@ Las decisiones relevantes se documentan mediante ADR:
 
 ## Estado actual
 
-El proyecto se encuentra en construcción incremental.
+El proyecto se encuentra en construccion incremental.
 
 Completado:
 
@@ -415,18 +433,24 @@ Completado:
 - Product Backlog;
 - estrategia de agentes;
 - plan Scrum;
-- planeación de Sprint 0;
-- inicialización de Git;
-- inicialización del frontend React + Vite + TypeScript;
+- planeacion de Sprint 0;
+- inicializacion de Git;
+- inicializacion del frontend React + Vite + TypeScript;
 - primeros componentes de la pantalla Home;
-- documentación base.
+- inicializacion del backend Express + TypeScript;
+- configuracion base de variables de entorno;
+- conexion inicial con PostgreSQL;
+- migracion inicial de base de datos;
+- endpoint `GET /api/health`;
+- primer test automatizado;
+- revision de seguridad de cierre de Sprint 0;
+- registro base de uso de IA;
+- documentacion base.
 
 Pendiente/progresivo:
 
-- inicialización del backend;
-- conexión PostgreSQL;
-- endpoint de health;
-- lógica completa del juego;
+- commit de cierre de Sprint 0;
+- logica completa del juego;
 - pistas con IA;
 - dificultad adaptativa;
 - ranking;

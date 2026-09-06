@@ -12,6 +12,25 @@ Base: `/api`
 | POST | `/api/games/:gameId/finish` | Finalizar partida |
 | GET | `/api/ranking` | Consultar ranking |
 
+## Estado actual
+
+El endpoint `GET /api/health` ya esta implementado como parte de Sprint 0. Valida que el backend responda y que pueda conectarse a PostgreSQL.
+
+Respuesta exitosa actual:
+
+```json
+{
+  "status": "ok",
+  "message": "API funcionando correctamente",
+  "database": {
+    "status": "connected",
+    "currentTime": "timestamp"
+  }
+}
+```
+
+Los endpoints funcionales de Sprint 1 aun estan pendientes de implementacion.
+
 ## Error estándar
 ```json
 {
