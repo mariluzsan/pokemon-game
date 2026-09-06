@@ -2,9 +2,10 @@ import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, Validatio
 import { GameRepository } from '../game/game.repository.js'
 import { RoundAlreadyResolvedError, RoundRepository } from '../game/round.repository.js'
 import { HintRepository } from './hint.repository.js'
-import { SafeHintGenerator, type HintGenerator } from './hint.generator.js'
+import { SafeHintGenerator, type GeneratedHint, type HintGenerator } from './hint.generator.js'
 import { PokemonApiClient } from '../pokemon/pokemon.client.js'
-import type { Hint, RequestHintInput } from './hint.types.js'
+import { HintLimitReachedError } from './hint.errors.js'
+import { MAX_HINTS_PER_ROUND, type Hint, type RequestHintInput } from './hint.types.js'
 
 interface GameReader {
   findById(id: number): ReturnType<GameRepository['findById']>
@@ -15,7 +16,12 @@ interface RoundReader {
 }
 
 interface HintWriter {
-  registerRequest(record: { id: number; gameId: number; createdAt: Date; content: string; source: 'AI' | 'FALLBACK' }): Promise<Hint>
+  registerGeneratedHint(record: {
+    id: number
+    gameId: number
+    createdAt: Date
+    generate: (level: number) => Promise<GeneratedHint>
+  }): Promise<Hint>
 }
 
 interface PokemonHintReader {
@@ -59,20 +65,22 @@ export class HintService {
       throw new RoundExpiredError()
     }
 
-    const pokemon = await this.pokemonReader.getPokemonHintData(round.pokemonId)
-    const generated = await this.hintGenerator.generate({
-      pokemonName: pokemon.name,
-      types: pokemon.types,
-      level: round.hintsUsed + 1,
-      difficulty: round.difficulty,
-    })
+    if (round.hintsUsed >= MAX_HINTS_PER_ROUND) {
+      throw new HintLimitReachedError()
+    }
 
-    return this.hintRepository.registerRequest({
+    const pokemon = await this.pokemonReader.getPokemonHintData(round.pokemonId)
+
+    return this.hintRepository.registerGeneratedHint({
       id: input.roundId,
       gameId: input.gameId,
       createdAt: requestedAt,
-      content: generated.content,
-      source: generated.source,
+      generate: (level) => this.hintGenerator.generate({
+        pokemonName: pokemon.name,
+        types: pokemon.types,
+        level,
+        difficulty: round.difficulty,
+      }),
     })
   }
 }

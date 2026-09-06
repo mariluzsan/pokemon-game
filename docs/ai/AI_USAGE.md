@@ -61,6 +61,31 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Limite de pistas por ronda US-11
+- Objetivo: implementar exclusivamente el limite de tres pistas por ronda,
+  manteniendo el backend como autoridad y sin aplicar penalizaciones.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar criterios de US-11, contrato API, esquema, ADRs,
+  flujo US-09/US-10, concurrencia y seguridad; impedir llamadas a IA una vez
+  alcanzado el limite y no adelantar US-12, US-13 ni US-14.
+- Resultado propuesto: reutilizar `rounds.hints_used`, `hints.level` y la
+  transaccion existente. La transaccion bloquea la ronda, comprueba el limite,
+  genera solo con el nivel autorizado y persiste la pista con el contador.
+- Decision: aceptado. Una pista se considera utilizada solo después de que
+  pista y contador se persisten juntos; un fallo anterior se revierte y no
+  consume una pista. El frontend solo muestra los contadores autoritativos y
+  deshabilita el control como mejora de UX.
+- Decision descartada: nueva migracion, estado duplicado, penalizaciones de
+  puntuacion, mecanismos de sanitizacion adicionales y nuevo fallback.
+- Verificacion: pruebas unitarias de niveles, limite, ausencia de invocacion
+  del generador y concurrencia simulada; build backend, build/lint frontend y
+  revision de contrato, seguridad y diff.
+- Archivos afectados: `backend/src/modules/hints/*`,
+  `frontend/src/services/api.ts`, `frontend/src/pages/Game/*`,
+  `docs/API_SPECIFICATION.md`, `docs/ai/AI_USAGE.md` y
+  `MANUAL_TEST_PLAN_US11.md`.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
+
 ### 2026-09-06 - Solicitud de pistas US-09
 - Objetivo: implementar únicamente US-09 para registrar solicitudes progresivas de pista durante una ronda vigente, sin implementar generación funcional de IA.
 - Herramienta/modelo: GitHub Copilot.

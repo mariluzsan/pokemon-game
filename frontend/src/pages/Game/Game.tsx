@@ -23,6 +23,8 @@ interface GamePageState {
   hintLevel: number | null
   hintContent: string | null
   hintError: string | null
+  hintsUsed: number
+  hintsRemaining: number | null
   score: number | null
   totalScore: number | null
   gameStatus: 'IN_PROGRESS' | 'FINISHED'
@@ -42,6 +44,8 @@ export default function Game({ gameId }: GameProps) {
     hintLevel: null,
     hintContent: null,
     hintError: null,
+    hintsUsed: 0,
+    hintsRemaining: null,
     score: null,
     totalScore: null,
     gameStatus: 'IN_PROGRESS',
@@ -61,6 +65,8 @@ export default function Game({ gameId }: GameProps) {
       hintLevel: null,
       hintContent: null,
       hintError: null,
+      hintsUsed: 0,
+      hintsRemaining: null,
       score: null,
       totalScore: null,
     }))
@@ -208,6 +214,8 @@ export default function Game({ gameId }: GameProps) {
         isRequestingHint: false,
         hintLevel: hint.level,
         hintContent: hint.content,
+        hintsUsed: hint.hintsUsed,
+        hintsRemaining: hint.hintsRemaining,
       }))
     } catch (error) {
       setState((prev) => ({
@@ -234,24 +242,34 @@ export default function Game({ gameId }: GameProps) {
       />
 
       {state.roundResult === null && (
-        <form className="game-actions" onSubmit={handleSubmitGuess}>
-          <label className="answer-field">
-            Tu respuesta
-            <input
-              value={answer}
-              onChange={(event) => setAnswer(event.target.value)}
-              disabled={state.isSubmitting || state.isRequestingHint}
-              autoComplete="off"
-              required
-            />
-          </label>
-          <GameButton type="submit" disabled={state.isSubmitting || state.isRequestingHint || !answer.trim()}>
-            {state.isSubmitting ? 'Enviando...' : 'Enviar respuesta'}
-          </GameButton>
-          <GameButton type="button" onClick={() => { void handleRequestHint() }} disabled={state.isSubmitting || state.isRequestingHint}>
-            {state.isRequestingHint ? 'Solicitando pista...' : 'Solicitar pista'}
-          </GameButton>
-        </form>
+        <>
+          <p className="hint-usage">
+            Pistas usadas: {state.hintsUsed}.
+            {state.hintsRemaining !== null && ` Restantes: ${state.hintsRemaining}.`}
+          </p>
+          <form className="game-actions" onSubmit={handleSubmitGuess}>
+            <label className="answer-field">
+              Tu respuesta
+              <input
+                value={answer}
+                onChange={(event) => setAnswer(event.target.value)}
+                disabled={state.isSubmitting || state.isRequestingHint}
+                autoComplete="off"
+                required
+              />
+            </label>
+            <GameButton type="submit" disabled={state.isSubmitting || state.isRequestingHint || !answer.trim()}>
+              {state.isSubmitting ? 'Enviando...' : 'Enviar respuesta'}
+            </GameButton>
+            <GameButton
+              type="button"
+              onClick={() => { void handleRequestHint() }}
+              disabled={state.isSubmitting || state.isRequestingHint || state.hintsRemaining === 0}
+            >
+              {state.isRequestingHint ? 'Solicitando pista...' : state.hintsRemaining === 0 ? 'Límite de pistas alcanzado' : 'Solicitar pista'}
+            </GameButton>
+          </form>
+        </>
       )}
 
       {state.guessError && <p className="error">{state.guessError}</p>}

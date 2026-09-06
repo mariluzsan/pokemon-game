@@ -18,7 +18,7 @@ function createGame(status: 'IN_PROGRESS' | 'FINISHED' = 'IN_PROGRESS') {
   }
 }
 
-function createRound(overrides: Partial<{ gameId: number; startedAt: string; finishedAt: Date | null }> = {}) {
+function createRound(overrides: Partial<{ gameId: number; startedAt: string; finishedAt: Date | null; hintsUsed: number }> = {}) {
   return {
     id: 11,
     gameId: overrides.gameId ?? 7,
@@ -28,7 +28,7 @@ function createRound(overrides: Partial<{ gameId: number; startedAt: string; fin
     pokemonId: 25,
     finishedAt: overrides.finishedAt ?? null,
     isCorrect: null,
-    hintsUsed: 0,
+    hintsUsed: overrides.hintsUsed ?? 0,
   }
 }
 
@@ -36,13 +36,16 @@ function createService(options: {
   game?: ReturnType<typeof createGame> | null
   round?: ReturnType<typeof createRound> | null
   now?: string
-  registerRequest?: (record: { id: number; gameId: number; createdAt: Date; content: string; source: 'AI' | 'FALLBACK' }) => Promise<{ level: number; content: string }>
+  registerGeneratedHint?: (record: { id: number; gameId: number; createdAt: Date; generate: (level: number) => Promise<{ content: string; source: 'AI' | 'FALLBACK' }> }) => Promise<{ level: number; content: string; hintsUsed: number; hintsRemaining: number }>
   hintGenerator?: HintGenerator
 } = {}) {
   return new HintService(
     { findById: async () => options.game === undefined ? createGame() : options.game },
     { findById: async () => options.round === undefined ? createRound() : options.round },
-    { registerRequest: options.registerRequest ?? (async (record) => ({ level: 1, content: record.content })) },
+    { registerGeneratedHint: options.registerGeneratedHint ?? (async (record) => {
+      const generated = await record.generate(1)
+      return { level: 1, content: generated.content, hintsUsed: 1, hintsRemaining: 2 }
+    }) },
     () => new Date(options.now ?? '2026-09-06T12:00:29.999Z'),
     { getPokemonHintData: async () => ({ name: 'pikachu', types: ['electric'] }) },
     options.hintGenerator ?? { generate: async () => ({ content: 'Pista generada para identificarlo.', source: 'AI' }) },
@@ -50,21 +53,20 @@ function createService(options: {
 }
 
 async function testRequestsPendingHintWithoutSensitiveData() {
-  let request: { id: number; gameId: number; createdAt: Date; content: string; source: 'AI' | 'FALLBACK' } | null = null
+  let request: { id: number; gameId: number; createdAt: Date } | null = null
   const hint = await createService({
-    registerRequest: async (record) => {
-      request = record
-      return { level: 1, content: record.content }
+    registerGeneratedHint: async (record) => {
+      request = { id: record.id, gameId: record.gameId, createdAt: record.createdAt }
+      const generated = await record.generate(1)
+      return { level: 1, content: generated.content, hintsUsed: 1, hintsRemaining: 2 }
     },
   }).requestHint({ gameId: 7, roundId: 11 })
 
-  assert.deepEqual(hint, { level: 1, content: 'Pista generada para identificarlo.' })
+  assert.deepEqual(hint, { level: 1, content: 'Pista generada para identificarlo.', hintsUsed: 1, hintsRemaining: 2 })
   assert.deepEqual(request, {
     id: 11,
     gameId: 7,
     createdAt: new Date('2026-09-06T12:00:29.999Z'),
-    content: 'Pista generada para identificarlo.',
-    source: 'AI',
   })
   assert.equal('pokemonId' in hint, false)
   assert.equal('pokemonName' in hint, false)
@@ -125,9 +127,109 @@ async function testRejectsResolvedAndExpiredRounds() {
 
 async function testPreservesLimitErrorFromAtomicPersistence() {
   await assert.rejects(
-    () => createService({ registerRequest: async () => { throw new HintLimitReachedError() } }).requestHint({ gameId: 7, roundId: 11 }),
+    () => createService({ registerGeneratedHint: async () => { throw new HintLimitReachedError() } }).requestHint({ gameId: 7, roundId: 11 }),
     HintLimitReachedError,
   )
+}
+
+async function testAssignsTheNextLevelAndAuthoritativeCounters() {
+  for (const hintsUsed of [0, 1, 2]) {
+    let generatorLevel: number | null = null
+    const hint = await createService({
+      round: createRound({ hintsUsed }),
+      hintGenerator: {
+        generate: async (input) => {
+          generatorLevel = input.level
+          return { content: `Pista progresiva numero ${input.level}.`, source: 'AI' }
+        },
+      },
+      registerGeneratedHint: async (record) => {
+        const level = hintsUsed + 1
+        const generated = await record.generate(level)
+        return { level, content: generated.content, hintsUsed: level, hintsRemaining: 3 - level }
+      },
+    }).requestHint({ gameId: 7, roundId: 11 })
+
+    assert.equal(generatorLevel, hintsUsed + 1)
+    assert.deepEqual(hint, {
+      level: hintsUsed + 1,
+      content: `Pista progresiva numero ${hintsUsed + 1}.`,
+      hintsUsed: hintsUsed + 1,
+      hintsRemaining: 2 - hintsUsed,
+    })
+  }
+}
+
+async function testRejectsAtLimitWithoutInvokingGenerator() {
+  let generatorCalls = 0
+  await assert.rejects(
+    () => createService({
+      round: createRound({ hintsUsed: 3 }),
+      hintGenerator: {
+        generate: async () => {
+          generatorCalls += 1
+          return { content: 'Esta pista no debe generarse.', source: 'AI' }
+        },
+      },
+    }).requestHint({ gameId: 7, roundId: 11 }),
+    HintLimitReachedError,
+  )
+  assert.equal(generatorCalls, 0)
+}
+
+async function testFailedGenerationDoesNotConsumeHint() {
+  let hintsUsed = 0
+  await assert.rejects(
+    () => createService({
+      hintGenerator: { generate: async () => { throw new Error('Fallo tecnico simulado.') } },
+      registerGeneratedHint: async (record) => {
+        const generated = await record.generate(hintsUsed + 1)
+        hintsUsed += 1
+        return { level: hintsUsed, content: generated.content, hintsUsed, hintsRemaining: 3 - hintsUsed }
+      },
+    }).requestHint({ gameId: 7, roundId: 11 }),
+    /Fallo tecnico simulado/,
+  )
+  assert.equal(hintsUsed, 0)
+}
+
+async function testConcurrentRequestsWithOneHintLeftGenerateOnlyOneHint() {
+  let hintsUsed = 2
+  let generatorCalls = 0
+  let releaseLock: (() => void) | undefined
+  let lock = Promise.resolve()
+  const registerGeneratedHint = async (record: { generate: (level: number) => Promise<{ content: string; source: 'AI' | 'FALLBACK' }> }) => {
+    const previousLock = lock
+    lock = new Promise<void>((resolve) => { releaseLock = resolve })
+    await previousLock
+    try {
+      if (hintsUsed >= 3) {
+        throw new HintLimitReachedError()
+      }
+      const level = hintsUsed + 1
+      const generated = await record.generate(level)
+      hintsUsed = level
+      return { level, content: generated.content, hintsUsed, hintsRemaining: 3 - hintsUsed }
+    } finally {
+      releaseLock?.()
+    }
+  }
+  const hintGenerator: HintGenerator = {
+    generate: async (input) => {
+      generatorCalls += 1
+      return { content: `Pista concurrente nivel ${input.level}.`, source: 'AI' }
+    },
+  }
+  const options = { round: createRound({ hintsUsed: 2 }), registerGeneratedHint, hintGenerator }
+  const results = await Promise.allSettled([
+    createService(options).requestHint({ gameId: 7, roundId: 11 }),
+    createService(options).requestHint({ gameId: 7, roundId: 11 }),
+  ])
+
+  assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1)
+  assert.equal(results.filter((result) => result.status === 'rejected').length, 1)
+  assert.equal(hintsUsed, 3)
+  assert.equal(generatorCalls, 1)
 }
 
 async function runTests() {
@@ -140,6 +242,10 @@ async function runTests() {
   await testRejectsFinishedGame()
   await testRejectsResolvedAndExpiredRounds()
   await testPreservesLimitErrorFromAtomicPersistence()
+  await testAssignsTheNextLevelAndAuthoritativeCounters()
+  await testRejectsAtLimitWithoutInvokingGenerator()
+  await testFailedGenerationDoesNotConsumeHint()
+  await testConcurrentRequestsWithOneHintLeftGenerateOnlyOneHint()
   console.log('Hint service tests passed')
 }
 

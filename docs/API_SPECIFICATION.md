@@ -216,14 +216,17 @@ Respuesta exitosa `201 Created`:
 {
   "hint": {
     "level": 1,
-    "content": "Observa los rasgos asociados con su tipo y su silueta característica."
+    "content": "Observa los rasgos asociados con su tipo y su silueta característica.",
+    "hintsUsed": 1,
+    "hintsRemaining": 2
   }
 }
 ```
 
 La respuesta no incluye `pokemonId`, `pokemon_id`, el nombre ni la respuesta
-correcta. `content` contiene la pista validada; su origen se conserva solo en
-la base de datos mediante `source` (`AI` o `FALLBACK`).
+correcta. `content` contiene la pista validada; `hintsUsed` y `hintsRemaining`
+son calculados por el backend después de la persistencia. Su origen se conserva
+solo en la base de datos mediante `source` (`AI` o `FALLBACK`).
 
 Errores previstos:
 

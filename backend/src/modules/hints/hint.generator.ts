@@ -6,7 +6,12 @@ export interface HintGenerationInput {
 }
 
 export interface HintGenerator {
-  generate(input: HintGenerationInput): Promise<{ content: string; source: 'AI' | 'FALLBACK' }>
+  generate(input: HintGenerationInput): Promise<GeneratedHint>
+}
+
+export interface GeneratedHint {
+  content: string
+  source: 'AI' | 'FALLBACK'
 }
 
 export class AIUnavailableError extends Error {

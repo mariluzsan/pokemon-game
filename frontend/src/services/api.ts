@@ -42,6 +42,8 @@ export interface RoundCompletion {
 export interface Hint {
   level: number
   content: string
+  hintsUsed: number
+  hintsRemaining: number
 }
 
 interface CreateGameResponse {

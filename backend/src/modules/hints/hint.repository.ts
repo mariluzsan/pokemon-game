@@ -4,17 +4,17 @@ import { RoundAlreadyResolvedError } from '../game/round.repository.js'
 import { ROUND_TIME_LIMIT_SECONDS } from '../game/round.types.js'
 import { HintLimitReachedError } from './hint.errors.js'
 import { MAX_HINTS_PER_ROUND, type Hint } from './hint.types.js'
+import type { GeneratedHint } from './hint.generator.js'
 
 interface RequestHintRecord {
   id: number
   gameId: number
   createdAt: Date
-  content: string
-  source: 'AI' | 'FALLBACK'
+  generate: (level: number) => Promise<GeneratedHint>
 }
 
 export class HintRepository {
-  async registerRequest(record: RequestHintRecord): Promise<Hint> {
+  async registerGeneratedHint(record: RequestHintRecord): Promise<Hint> {
     const client = await pool.connect()
 
     try {
@@ -65,10 +65,11 @@ export class HintRepository {
       }
 
       const level = round.hints_used + 1
+      const generated = await record.generate(level)
       await client.query(
         `INSERT INTO hints (round_id, level, source, content)
          VALUES ($1, $2, $3, $4)`,
-        [record.id, level, record.source, record.content],
+        [record.id, level, generated.source, generated.content],
       )
       await client.query(
         `UPDATE rounds
@@ -78,7 +79,12 @@ export class HintRepository {
       )
 
       await client.query('COMMIT')
-      return { level, content: record.content }
+      return {
+        level,
+        content: generated.content,
+        hintsUsed: level,
+        hintsRemaining: MAX_HINTS_PER_ROUND - level,
+      }
     } catch (error) {
       await client.query('ROLLBACK')
       throw error
