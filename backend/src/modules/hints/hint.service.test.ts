@@ -3,6 +3,7 @@ import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, Validatio
 import { RoundAlreadyResolvedError } from '../game/round.repository.js'
 import { HintLimitReachedError } from './hint.errors.js'
 import { HintService } from './hint.service.js'
+import type { HintGenerator } from './hint.generator.js'
 
 function createGame(status: 'IN_PROGRESS' | 'FINISHED' = 'IN_PROGRESS') {
   return {
@@ -35,27 +36,36 @@ function createService(options: {
   game?: ReturnType<typeof createGame> | null
   round?: ReturnType<typeof createRound> | null
   now?: string
-  registerRequest?: (record: { id: number; gameId: number; createdAt: Date }) => Promise<{ level: number; content: null }>
+  registerRequest?: (record: { id: number; gameId: number; createdAt: Date; content: string; source: 'AI' | 'FALLBACK' }) => Promise<{ level: number; content: string }>
+  hintGenerator?: HintGenerator
 } = {}) {
   return new HintService(
     { findById: async () => options.game === undefined ? createGame() : options.game },
     { findById: async () => options.round === undefined ? createRound() : options.round },
-    { registerRequest: options.registerRequest ?? (async () => ({ level: 1, content: null })) },
+    { registerRequest: options.registerRequest ?? (async (record) => ({ level: 1, content: record.content })) },
     () => new Date(options.now ?? '2026-09-06T12:00:29.999Z'),
+    { getPokemonHintData: async () => ({ name: 'pikachu', types: ['electric'] }) },
+    options.hintGenerator ?? { generate: async () => ({ content: 'Pista generada para identificarlo.', source: 'AI' }) },
   )
 }
 
 async function testRequestsPendingHintWithoutSensitiveData() {
-  let request: { id: number; gameId: number; createdAt: Date } | null = null
+  let request: { id: number; gameId: number; createdAt: Date; content: string; source: 'AI' | 'FALLBACK' } | null = null
   const hint = await createService({
     registerRequest: async (record) => {
       request = record
-      return { level: 1, content: null }
+      return { level: 1, content: record.content }
     },
   }).requestHint({ gameId: 7, roundId: 11 })
 
-  assert.deepEqual(hint, { level: 1, content: null })
-  assert.deepEqual(request, { id: 11, gameId: 7, createdAt: new Date('2026-09-06T12:00:29.999Z') })
+  assert.deepEqual(hint, { level: 1, content: 'Pista generada para identificarlo.' })
+  assert.deepEqual(request, {
+    id: 11,
+    gameId: 7,
+    createdAt: new Date('2026-09-06T12:00:29.999Z'),
+    content: 'Pista generada para identificarlo.',
+    source: 'AI',
+  })
   assert.equal('pokemonId' in hint, false)
   assert.equal('pokemonName' in hint, false)
 }
@@ -66,6 +76,22 @@ async function testDoesNotModifyScores() {
   await createService({ game, round }).requestHint({ gameId: 7, roundId: 11 })
   assert.equal(game.totalScore, 0)
   assert.equal(round.hintsUsed, 0)
+}
+
+async function testSendsOnlyPokemonHintDataToGenerator() {
+  let received: unknown = null
+  await createService({
+    hintGenerator: {
+      generate: async (input) => {
+        received = input
+        return { content: 'Pista generada para identificarlo.', source: 'AI' }
+      },
+    },
+  }).requestHint({ gameId: 7, roundId: 11 })
+
+  assert.deepEqual(received, { pokemonName: 'pikachu', types: ['electric'], level: 1, difficulty: 'EASY' })
+  assert.equal(JSON.stringify(received).includes('Ash'), false)
+  assert.equal(JSON.stringify(received).includes('gameId'), false)
 }
 
 async function testRejectsInvalidIdentifiers() {
@@ -107,6 +133,7 @@ async function testPreservesLimitErrorFromAtomicPersistence() {
 async function runTests() {
   await testRequestsPendingHintWithoutSensitiveData()
   await testDoesNotModifyScores()
+  await testSendsOnlyPokemonHintDataToGenerator()
   await testRejectsInvalidIdentifiers()
   await testRejectsMissingGame()
   await testRejectsMissingOrForeignRound()

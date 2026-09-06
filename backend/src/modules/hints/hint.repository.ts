@@ -9,6 +9,8 @@ interface RequestHintRecord {
   id: number
   gameId: number
   createdAt: Date
+  content: string
+  source: 'AI' | 'FALLBACK'
 }
 
 export class HintRepository {
@@ -65,8 +67,8 @@ export class HintRepository {
       const level = round.hints_used + 1
       await client.query(
         `INSERT INTO hints (round_id, level, source, content)
-         VALUES ($1, $2, 'AI', NULL)`,
-        [record.id, level],
+         VALUES ($1, $2, $3, $4)`,
+        [record.id, level, record.source, record.content],
       )
       await client.query(
         `UPDATE rounds
@@ -76,7 +78,7 @@ export class HintRepository {
       )
 
       await client.query('COMMIT')
-      return { level, content: null }
+      return { level, content: record.content }
     } catch (error) {
       await client.query('ROLLBACK')
       throw error

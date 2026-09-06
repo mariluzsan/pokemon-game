@@ -10,6 +10,8 @@
 - No devolver stack traces ni informacion sensible.
 - La salida de IA se considera no confiable y debe validarse.
 - El proveedor de IA debe tener timeout y fallback.
+- `AI_API_KEY` se consume únicamente en `AnthropicHintGenerator`; no se registra ni se incluye en respuestas.
+- El frontend no recibe `pokemonId`, nombre objetivo, prompt ni ninguna variable `VITE_*` de secreto.
 - No registrar contrasenas, tokens o cadenas de conexion completas.
 - Revisar vulnerabilidades de dependencias y evitar paquetes innecesarios.
 

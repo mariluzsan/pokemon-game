@@ -2,6 +2,8 @@ import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, Validatio
 import { GameRepository } from '../game/game.repository.js'
 import { RoundAlreadyResolvedError, RoundRepository } from '../game/round.repository.js'
 import { HintRepository } from './hint.repository.js'
+import { SafeHintGenerator, type HintGenerator } from './hint.generator.js'
+import { PokemonApiClient } from '../pokemon/pokemon.client.js'
 import type { Hint, RequestHintInput } from './hint.types.js'
 
 interface GameReader {
@@ -13,7 +15,11 @@ interface RoundReader {
 }
 
 interface HintWriter {
-  registerRequest(record: { id: number; gameId: number; createdAt: Date }): Promise<Hint>
+  registerRequest(record: { id: number; gameId: number; createdAt: Date; content: string; source: 'AI' | 'FALLBACK' }): Promise<Hint>
+}
+
+interface PokemonHintReader {
+  getPokemonHintData(pokemonId: number): ReturnType<PokemonApiClient['getPokemonHintData']>
 }
 
 export class HintService {
@@ -22,6 +28,8 @@ export class HintService {
     private readonly roundRepository: RoundReader = new RoundRepository(),
     private readonly hintRepository: HintWriter = new HintRepository(),
     private readonly now: () => Date = () => new Date(),
+    private readonly pokemonReader: PokemonHintReader = new PokemonApiClient(),
+    private readonly hintGenerator: HintGenerator = new SafeHintGenerator(),
   ) {}
 
   async requestHint(input: RequestHintInput): Promise<Hint> {
@@ -51,10 +59,20 @@ export class HintService {
       throw new RoundExpiredError()
     }
 
+    const pokemon = await this.pokemonReader.getPokemonHintData(round.pokemonId)
+    const generated = await this.hintGenerator.generate({
+      pokemonName: pokemon.name,
+      types: pokemon.types,
+      level: round.hintsUsed + 1,
+      difficulty: round.difficulty,
+    })
+
     return this.hintRepository.registerRequest({
       id: input.roundId,
       gameId: input.gameId,
       createdAt: requestedAt,
+      content: generated.content,
+      source: generated.source,
     })
   }
 }

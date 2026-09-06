@@ -41,7 +41,7 @@ export interface RoundCompletion {
 
 export interface Hint {
   level: number
-  content: null
+  content: string
 }
 
 interface CreateGameResponse {
@@ -68,7 +68,7 @@ interface RequestHintResponse {
   hint: Hint
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 async function ensureSuccessfulResponse(response: Response, fallbackMessage: string): Promise<void> {
   if (response.ok) {

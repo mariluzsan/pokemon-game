@@ -292,6 +292,10 @@ export async function requestHintController(req: Request, res: Response) {
       res.status(409).json({ error: { code: 'HINT_LIMIT_REACHED', message: error.message } })
       return
     }
+    if (error instanceof PokemonApiError) {
+      res.status(503).json({ error: { code: 'POKEAPI_UNAVAILABLE', message: 'No fue posible obtener los datos del Pokemon.' } })
+      return
+    }
 
     console.error('Error al solicitar pista')
     res.status(500).json({ error: { code: 'DATABASE_ERROR', message: 'No fue posible solicitar la pista.' } })

@@ -19,6 +19,46 @@ La salida de IA es una propuesta técnica, no una autoridad.
 ## IA del producto
 La generación de pistas se trata como una integración no confiable: timeout, errores, validación de formato, validación de spoilers, límite de pistas y fallback.
 
+### US-10 - Generación de pistas mediante IA
+
+- Fecha: 2026-09-06.
+- Propósito: generar una pista breve, progresiva y útil para identificar el
+  Pokémon sin devolver explícitamente la respuesta.
+- Proveedor/modelo: Anthropic mediante HTTP backend, modelo `claude-sonnet-4-6`,
+  decisión registrada en `docs/decisions/ADR-007-anthropic-hints.md`.
+- Entrada enviada: nombre objetivo, tipos del Pokémon, nivel progresivo y
+  dificultad. Estos datos permanecen en backend; no se envían `playerName`,
+  `gameId`, puntuación ni historial del jugador.
+- Salida esperada: texto en español de 10 a 240 caracteres, sin el nombre del
+  Pokémon, sin formato estructurado innecesario y relacionado con sus tipos.
+- Prompt/restricciones: el backend construye el prompt; solicita una sola
+  pista en español, prohíbe decir el nombre o revelarlo trivialmente y pide
+  únicamente el texto necesario. El frontend no puede suministrar prompts.
+- Manejo de errores: timeout, error HTTP, credencial ausente, respuesta vacía
+  o salida inválida activan `FallbackHintGenerator`; el error no interrumpe la
+  partida ni filtra detalles del proveedor.
+- Seguridad: `AI_API_KEY` existe solo en backend; no se registra el prompt ni
+  la credencial; la respuesta HTTP contiene únicamente `level` y `content`.
+- Persistencia: `hints.source` distingue `AI` de `FALLBACK` y `hints.content`
+  almacena la pista validada. No se modifica `score` ni `total_score`.
+- Pruebas: `AnthropicHintGenerator` recibe un `fetch` simulado y `HintService`
+  recibe un `HintGenerator` inyectado. La suite no requiere internet ni una
+  clave real.
+
+#### Uso de IA como agente de desarrollo
+
+- Herramienta/modelo: GitHub Copilot.
+- Objetivo: integrar US-10 sobre el flujo de solicitudes de US-09 respetando
+  los documentos, ADRs, seguridad, pruebas y límites con historias futuras.
+- Decisiones aceptadas: Anthropic mediante HTTP sin SDK adicional,
+  abstracción `HintGenerator`, validación mínima exigida por US-10 y fallback
+  requerido explícitamente por sus criterios.
+- Decisiones descartadas: llamadas desde frontend, secretos `VITE_*`, un
+  endpoint paralelo, cambios de scoring y una estrategia más amplia de
+  sanitización/reintentos propia de US-13.
+- Verificación: suite backend completa, build frontend, lint frontend,
+  revisión de payloads y `git diff --check`.
+
 ## Registros
 
 ### 2026-09-06 - Solicitud de pistas US-09

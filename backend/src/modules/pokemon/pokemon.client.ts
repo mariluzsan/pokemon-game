@@ -6,6 +6,11 @@ export interface PokemonData {
   imageUrl: string
 }
 
+export interface PokemonHintData {
+  name: string
+  types: string[]
+}
+
 interface PokemonApiResponse {
   id?: unknown
   name?: unknown
@@ -16,6 +21,7 @@ interface PokemonApiResponse {
       }
     }
   }
+  types?: Array<{ type?: { name?: unknown } }>
 }
 
 export class PokemonApiError extends Error {
@@ -138,6 +144,37 @@ export class PokemonApiClient implements PokemonSelector {
         throw error
       }
 
+      throw new PokemonApiError()
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
+  async getPokemonHintData(pokemonId: number): Promise<PokemonHintData> {
+    if (!Number.isInteger(pokemonId) || pokemonId <= 0) {
+      throw new PokemonApiError()
+    }
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+    try {
+      const response = await this.fetcher(`${this.baseUrl}/pokemon/${pokemonId}`, { signal: controller.signal })
+      if (!response.ok) {
+        throw new PokemonApiError()
+      }
+
+      const data = await response.json() as PokemonApiResponse
+      const types = data.types?.map((entry) => entry.type?.name).filter((type): type is string => typeof type === 'string' && type.trim() !== '') ?? []
+      if (typeof data.name !== 'string' || data.name.trim() === '' || types.length === 0) {
+        throw new PokemonApiError()
+      }
+
+      return { name: data.name, types }
+    } catch (error) {
+      if (error instanceof PokemonApiError) {
+        throw error
+      }
       throw new PokemonApiError()
     } finally {
       clearTimeout(timeout)

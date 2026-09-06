@@ -206,8 +206,8 @@ Errores previstos:
 
 ### POST `/api/games/:gameId/rounds/:roundId/hints`
 
-Registra la solicitud de la siguiente pista progresiva de una ronda vigente.
-No requiere body y no admite que el cliente determine el Pokémon, el contenido,
+Genera y registra la siguiente pista progresiva de una ronda vigente mediante
+el proveedor de IA configurado en backend. No requiere body y no admite que el cliente determine el Pokémon, el contenido,
 la penalización, la dificultad ni el nivel de la pista.
 
 Respuesta exitosa `201 Created`:
@@ -216,14 +216,14 @@ Respuesta exitosa `201 Created`:
 {
   "hint": {
     "level": 1,
-    "content": null
+    "content": "Observa los rasgos asociados con su tipo y su silueta característica."
   }
 }
 ```
 
-En US-09, `content` es `null`: la solicitud y su nivel quedan registrados, pero
-la generación y entrega del contenido corresponden a US-10. La respuesta no
-incluye `pokemonId`, `pokemon_id`, el nombre ni la respuesta correcta.
+La respuesta no incluye `pokemonId`, `pokemon_id`, el nombre ni la respuesta
+correcta. `content` contiene la pista validada; su origen se conserva solo en
+la base de datos mediante `source` (`AI` o `FALLBACK`).
 
 Errores previstos:
 
@@ -233,6 +233,7 @@ Errores previstos:
 - `409 ROUND_ALREADY_RESOLVED` cuando la ronda ya fue resuelta.
 - `409 ROUND_EXPIRED` cuando la ronda alcanzó el límite de tiempo.
 - `409 HINT_LIMIT_REACHED` cuando ya se solicitaron tres pistas en la ronda.
+- `503 POKEAPI_UNAVAILABLE` cuando no fue posible obtener los datos mínimos del Pokémon.
 - `500 DATABASE_ERROR` cuando no fue posible registrar la solicitud.
 
 ## Error estándar

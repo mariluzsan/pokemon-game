@@ -21,6 +21,7 @@ interface GamePageState {
   guessError: string | null
   isRequestingHint: boolean
   hintLevel: number | null
+  hintContent: string | null
   hintError: string | null
   score: number | null
   totalScore: number | null
@@ -39,6 +40,7 @@ export default function Game({ gameId }: GameProps) {
     guessError: null,
     isRequestingHint: false,
     hintLevel: null,
+    hintContent: null,
     hintError: null,
     score: null,
     totalScore: null,
@@ -57,6 +59,7 @@ export default function Game({ gameId }: GameProps) {
       guessError: null,
       isRequestingHint: false,
       hintLevel: null,
+      hintContent: null,
       hintError: null,
       score: null,
       totalScore: null,
@@ -204,6 +207,7 @@ export default function Game({ gameId }: GameProps) {
         ...prev,
         isRequestingHint: false,
         hintLevel: hint.level,
+        hintContent: hint.content,
       }))
     } catch (error) {
       setState((prev) => ({
@@ -252,7 +256,7 @@ export default function Game({ gameId }: GameProps) {
 
       {state.guessError && <p className="error">{state.guessError}</p>}
       {state.hintLevel !== null && (
-        <p className="hint-status">Pista {state.hintLevel} solicitada. Estara disponible al generarse.</p>
+        <p className="hint-status">Pista {state.hintLevel}: {state.hintContent}</p>
       )}
       {state.hintError && <p className="error">{state.hintError}</p>}
       {state.roundResult !== null && (

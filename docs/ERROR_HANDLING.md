@@ -27,3 +27,8 @@ Formato:
 | `VALIDATION_ERROR` | Entrada inválida |
 
 No se exponen stack traces, SQL, credenciales ni claves. Los controladores traducen errores del dominio a respuestas HTTP coherentes.
+
+En US-10, un timeout, error HTTP, credencial ausente, respuesta vacía o
+salida inválida del proveedor activa el `FallbackHintGenerator`; no se expone
+el detalle interno ni se interrumpe la partida. Los fallos al obtener datos
+mínimos desde PokéAPI se responden como `POKEAPI_UNAVAILABLE`.

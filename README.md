@@ -97,6 +97,14 @@ Principios principales:
 
 Más información: `docs/architecture/ARCHITECTURE.md`.
 
+### Configuración local de IA
+
+La generación de pistas usa Anthropic desde el backend. Copia los nombres de
+`.env.example` a tu archivo `.env` local y configura `AI_API_KEY` únicamente
+en el entorno donde se ejecuta el backend. El modelo por defecto es
+`claude-sonnet-4-6` y el timeout por defecto es de 30000 ms. No uses estas variables
+como `VITE_*` ni las incluyas en Git.
+
 ## Estructura del repositorio
 
 ```text
