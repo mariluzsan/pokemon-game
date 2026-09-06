@@ -27,6 +27,17 @@ function mapGameRow(row: GameRow): Game {
 }
 
 export class GameRepository {
+  async findById(id: number): Promise<Game | null> {
+    const result = await pool.query<GameRow>(
+      `SELECT id, player_name, total_score, current_round, difficulty, status, started_at, finished_at
+       FROM games
+       WHERE id = $1`,
+      [id],
+    )
+
+    return result.rows[0] ? mapGameRow(result.rows[0]) : null
+  }
+
   async create(playerName: string): Promise<Game> {
     const result = await pool.query<GameRow>(
       `INSERT INTO games (player_name)

@@ -13,6 +13,7 @@ Formato:
 | Código | Significado |
 |---|---|
 | `GAME_NOT_FOUND` | Partida inexistente |
+| `GAME_NOT_IN_PROGRESS` | La partida no permite crear una ronda |
 | `ROUND_NOT_FOUND` | Ronda inexistente |
 | `INVALID_GUESS` | Intento inválido |
 | `HINT_LIMIT_REACHED` | Límite de pistas alcanzado |

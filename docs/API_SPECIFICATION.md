@@ -7,6 +7,7 @@ Base: `/api`
 | GET | `/api/health` | Estado del backend |
 | POST | `/api/games` | Crear partida |
 | GET | `/api/games/:gameId` | Consultar partida |
+| POST | `/api/games/:gameId/rounds` | Crear una ronda y seleccionar su Pokémon |
 | POST | `/api/games/:gameId/rounds/:roundId/guess` | Registrar intento |
 | POST | `/api/games/:gameId/rounds/:roundId/hints` | Solicitar pista |
 | POST | `/api/games/:gameId/finish` | Finalizar partida |
@@ -66,6 +67,33 @@ Errores previstos:
 - `500 DATABASE_ERROR` cuando no fue posible persistir la partida.
 
 Los demas endpoints funcionales de Sprint 1 aun estan pendientes de implementacion.
+
+### POST `/api/games/:gameId/rounds`
+
+Crea la siguiente ronda de una partida en progreso. La selección y persistencia
+del Pokémon ocurren en el backend; `pokemon_id` no se devuelve al cliente.
+
+Respuesta exitosa `201 Created`:
+
+```json
+{
+  "round": {
+    "id": 1,
+    "gameId": 1,
+    "roundNumber": 1,
+    "difficulty": "EASY",
+    "startedAt": "2026-09-05T12:00:00.000Z"
+  }
+}
+```
+
+Errores previstos:
+
+- `400 VALIDATION_ERROR` cuando `gameId` no es un entero positivo.
+- `404 GAME_NOT_FOUND` cuando la partida no existe.
+- `409 GAME_NOT_IN_PROGRESS` cuando la partida no esta disponible para crear una ronda.
+- `503 POKEAPI_UNAVAILABLE` cuando PokéAPI falla o devuelve datos invalidos.
+- `500 DATABASE_ERROR` cuando no fue posible persistir la ronda.
 
 ## Error estándar
 ```json

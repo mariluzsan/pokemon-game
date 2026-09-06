@@ -21,6 +21,16 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-05 - Seleccion de Pokemon para una ronda US-02
+- Objetivo: implementar unicamente US-02, creando una ronda para una partida existente mediante un Pokemon real de PokéAPI.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar la documentacion vigente, US-01, el esquema PostgreSQL y la arquitectura; implementar US-02 sin avanzar a US-03 ni a pistas, scoring, dificultad adaptativa o ranking.
+- Resultado propuesto: agregar cliente backend para PokéAPI, servicio y repositorio de rondas, `POST /api/games/:gameId/rounds`, validaciones y pruebas unitarias sin exponer `pokemon_id`.
+- Decision: aceptado con una integracion externa encapsulada, validacion de `id` y `name`, manejo seguro de errores y persistencia parametrizada. Se descarto exponer datos del Pokemon o modificar el esquema porque US-03 es quien visualiza el personaje y el esquema actual ya soporta la ronda.
+- Verificacion: pruebas automatizadas de esquema, servicio de partida/ronda y cliente PokéAPI; compilacion de backend y frontend; revision de contrato HTTP y estado de Git.
+- Archivos afectados: `backend/src/modules/game/*`, `backend/src/modules/pokemon/*`, `backend/package.json`, `docs/API_SPECIFICATION.md`, `docs/ERROR_HANDLING.md`, `docs/ai/AI_USAGE.md`.
+- Commit relacionado: pendiente.
+
 ### 2026-09-05 - Inicio funcional de partida US-01
 - Objetivo: implementar el primer incremento funcional de Sprint 1 para crear una partida desde frontend y backend.
 - Herramienta/modelo: Codex.

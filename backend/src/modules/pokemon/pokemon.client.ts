@@ -1,0 +1,62 @@
+export interface PokemonSelector {
+  selectRandomPokemon(): Promise<number>
+}
+
+interface PokemonApiResponse {
+  id?: unknown
+  name?: unknown
+}
+
+export class PokemonApiError extends Error {
+  constructor() {
+    super('No fue posible obtener un Pokemon desde PokéAPI.')
+    this.name = 'PokemonApiError'
+  }
+}
+
+type FetchLike = typeof fetch
+
+const POKEMON_COUNT = 1025
+const REQUEST_TIMEOUT_MS = 5000
+
+export class PokemonApiClient implements PokemonSelector {
+  constructor(
+    private readonly fetcher: FetchLike = fetch,
+    private readonly random = Math.random,
+    private readonly baseUrl = 'https://pokeapi.co/api/v2',
+  ) {}
+
+  async selectRandomPokemon(): Promise<number> {
+    const requestedPokemonId = Math.floor(this.random() * POKEMON_COUNT) + 1
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+    try {
+      const response = await this.fetcher(
+        `${this.baseUrl}/pokemon/${requestedPokemonId}`,
+        { signal: controller.signal },
+      )
+
+      if (!response.ok) {
+        throw new PokemonApiError()
+      }
+
+      const data = await response.json() as PokemonApiResponse
+      const pokemonId = data.id
+
+      if (typeof pokemonId !== 'number' || !Number.isInteger(pokemonId) || pokemonId <= 0 || typeof data.name !== 'string' || data.name.trim() === '') {
+        throw new PokemonApiError()
+      }
+
+      return pokemonId
+    } catch (error) {
+      if (error instanceof PokemonApiError) {
+        throw error
+      }
+
+      throw new PokemonApiError()
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+}
