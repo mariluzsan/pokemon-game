@@ -36,7 +36,10 @@
 - El resultado de la ronda permite continuar con la siguiente ronda o finalizar la partida según el flujo definido.
 
 ## US-08 — Finalizar la partida al completar las rondas
+- Una partida estándar permite como máximo diez rondas.
 - La partida se marca como finalizada cuando se completan todas las rondas configuradas.
+- Al resolver la décima ronda, el backend incrementa el total, marca la partida como finalizada y conserva `finished_at`.
+- Una solicitud posterior para crear la ronda once es rechazada y no modifica la partida.
 - Una partida finalizada conserva su puntuación total y el resultado final.
 - Una partida finalizada no acepta nuevas rondas, respuestas ni acciones que modifiquen su puntuación.
 - El sistema informa al jugador que la partida terminó y muestra el resultado acumulado.

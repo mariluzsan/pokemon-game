@@ -1,6 +1,7 @@
 import type { Game } from './game.types.js'
 
 export const ROUND_TIME_LIMIT_SECONDS = 30
+export const MAX_ROUNDS = 10
 
 export interface Round {
   id: number
@@ -8,6 +9,7 @@ export interface Round {
   roundNumber: number
   difficulty: Game['difficulty']
   startedAt: string
+  hintsUsed: number
 }
 
 export interface RoundChallenge {

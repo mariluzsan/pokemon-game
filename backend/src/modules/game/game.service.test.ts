@@ -52,6 +52,7 @@ async function testCreatesRoundWithoutExposingPokemon() {
           roundNumber,
           difficulty,
           startedAt: '2026-09-05T12:01:00.000Z',
+          hintsUsed: 0,
         }
       },
       findById: async () => null,
@@ -72,6 +73,7 @@ async function testCreatesRoundWithoutExposingPokemon() {
     roundNumber: 1,
     difficulty: 'EASY',
     startedAt: '2026-09-05T12:01:00.000Z',
+    hintsUsed: 0,
   })
   assert.equal('pokemonId' in round, false)
 }
@@ -90,6 +92,7 @@ async function testChallengeIncludesConfiguredTimeLimit() {
         pokemonId: 25,
         finishedAt: null,
         isCorrect: null,
+        hintsUsed: 0,
       }),
       updateGuess: async () => 0,
     },
@@ -118,6 +121,7 @@ async function testRoundExpiresAtConfiguredBoundary() {
     pokemonId: 25,
     finishedAt: null,
     isCorrect: null,
+    hintsUsed: 0,
   }
   const repository = {
     create: async () => { throw new Error('No debe crear otra ronda') },
@@ -183,6 +187,24 @@ async function testRejectsFinishedGame() {
   await assert.rejects(() => roundService.createRound({ gameId: 7 }), GameNotInProgressError)
 }
 
+async function testRejectsRoundAfterTenRounds() {
+  const roundService = new RoundService(
+    { findById: async () => createGame({ currentRound: 11 }) },
+    {
+      create: async () => { throw new Error('No debe persistir') },
+      findById: async () => null,
+      updateGuess: async () => 0,
+    },
+    {
+      selectRandomPokemon: async () => 25,
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+      getPokemonName: async () => 'pikachu',
+    },
+  )
+
+  await assert.rejects(() => roundService.createRound({ gameId: 7 }), GameNotInProgressError)
+}
+
 async function testRejectsChallengeFromAnotherGame() {
   const roundService = new RoundService(
     { findById: async () => createGame() },
@@ -197,6 +219,7 @@ async function testRejectsChallengeFromAnotherGame() {
         pokemonId: 25,
         finishedAt: null,
         isCorrect: null,
+        hintsUsed: 0,
       }),
       updateGuess: async () => 0,
     },
@@ -213,7 +236,7 @@ async function testRejectsChallengeFromAnotherGame() {
   )
 }
 
-function createGuessRound(overrides: Partial<{ gameId: number; startedAt: string; pokemonId: number }> = {}) {
+function createGuessRound(overrides: Partial<{ gameId: number; startedAt: string; pokemonId: number; hintsUsed: number }> = {}) {
   return {
     id: 11,
     gameId: overrides.gameId ?? 7,
@@ -223,6 +246,7 @@ function createGuessRound(overrides: Partial<{ gameId: number; startedAt: string
     pokemonId: overrides.pokemonId ?? 25,
     finishedAt: null,
     isCorrect: null,
+    hintsUsed: overrides.hintsUsed ?? 0,
   }
 }
 
@@ -436,6 +460,17 @@ function testCalculateScoreWithFlooringEffect() {
   assert.equal(score, 1483)
 }
 
+function testCalculateScoreAppliesHintPenalty() {
+  assert.equal(calculateScore(true, 'EASY', 5000, 1), 1316)
+  assert.equal(calculateScore(true, 'EASY', 5000, 3), 1116)
+  assert.equal(calculateScore(true, 'EASY', 0, 3), 1200)
+}
+
+function testCalculateScoreNeverBecomesNegativeWithHints() {
+  assert.equal(calculateScore(true, 'EASY', 30000, 3), 700)
+  assert.equal(calculateScore(false, 'HARD', 0, 3), 0)
+}
+
 async function testSubmitsGuessWithScoreAndTotalScore() {
   let persistedData: { score: number; totalScore: number } | null = null
   const roundService = createGuessService({
@@ -491,6 +526,7 @@ async function runTests() {
   await testRoundExpiresAtConfiguredBoundary()
   await testRejectsMissingGame()
   await testRejectsFinishedGame()
+  await testRejectsRoundAfterTenRounds()
   await testRejectsChallengeFromAnotherGame()
   await testSubmitsCorrectGuessAndPersistsOnlyEvaluation()
   await testAcceptsFormattedPokemonNames()
@@ -511,6 +547,8 @@ async function runTests() {
   testCalculateScoreWithMaxTimeBonus()
   testCalculateScoreWithZeroTimeBonus()
   testCalculateScoreWithFlooringEffect()
+  testCalculateScoreAppliesHintPenalty()
+  testCalculateScoreNeverBecomesNegativeWithHints()
   await testSubmitsGuessWithScoreAndTotalScore()
   await testRejectsSecondGuessForSameRound()
 

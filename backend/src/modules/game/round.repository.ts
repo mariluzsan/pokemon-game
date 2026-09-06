@@ -1,6 +1,7 @@
 import type { QueryResultRow } from 'pg'
 import { pool } from '../../infrastructure/database/database.js'
 import type { Game } from './game.types.js'
+import { MAX_ROUNDS } from './round.types.js'
 import type { Round } from './round.types.js'
 
 interface RoundRow extends QueryResultRow {
@@ -11,6 +12,7 @@ interface RoundRow extends QueryResultRow {
   difficulty: Game['difficulty']
   started_at: Date
   finished_at?: Date | null
+  hints_used: number
 }
 
 function mapRoundRow(row: RoundRow): Round {
@@ -20,6 +22,7 @@ function mapRoundRow(row: RoundRow): Round {
     roundNumber: row.round_number,
     difficulty: row.difficulty,
     startedAt: row.started_at.toISOString(),
+    hintsUsed: row.hints_used,
   }
 }
 
@@ -35,7 +38,7 @@ export class RoundRepository {
     const result = await pool.query<RoundRow>(
       `INSERT INTO rounds (game_id, round_number, pokemon_id, difficulty)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, game_id, round_number, difficulty, started_at`,
+       RETURNING id, game_id, round_number, difficulty, started_at, hints_used`,
       [gameId, roundNumber, pokemonId, difficulty],
     )
 
@@ -44,7 +47,7 @@ export class RoundRepository {
 
   async findById(roundId: number): Promise<(Round & { pokemonId: number; finishedAt: Date | null; isCorrect: boolean | null }) | null> {
     const result = await pool.query<RoundRow>(
-      `SELECT id, game_id, round_number, pokemon_id, difficulty, started_at, finished_at, is_correct
+      `SELECT id, game_id, round_number, pokemon_id, difficulty, started_at, finished_at, is_correct, hints_used
        FROM rounds
        WHERE id = $1`,
       [roundId],
@@ -71,7 +74,7 @@ export class RoundRepository {
 
       // Verificar si la ronda ya fue resuelta
       const roundCheckResult = await client.query(
-        `SELECT finished_at FROM rounds WHERE id = $1`,
+        `SELECT finished_at FROM rounds WHERE id = $1 FOR UPDATE`,
         [roundId],
       )
 
@@ -97,10 +100,13 @@ export class RoundRepository {
       // Actualizar total_score de la partida
       const updateGameResult = await client.query(
         `UPDATE games
-         SET total_score = total_score + $2
+         SET total_score = total_score + $2,
+             current_round = current_round + 1,
+             status = CASE WHEN current_round >= $3 THEN 'FINISHED' ELSE status END,
+             finished_at = CASE WHEN current_round >= $3 THEN $4 ELSE finished_at END
          WHERE id = $1
          RETURNING total_score`,
-        [gameId, score],
+        [gameId, score, MAX_ROUNDS, finishedAt],
       )
 
       const newTotalScore = updateGameResult.rows[0].total_score

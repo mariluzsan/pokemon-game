@@ -2,7 +2,7 @@ import { PokemonApiError } from '../pokemon/pokemon.client.js'
 import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, ValidationError } from './game.errors.js'
 import { GameRepository } from './game.repository.js'
 import { RoundAlreadyResolvedError, RoundRepository } from './round.repository.js'
-import { ROUND_TIME_LIMIT_SECONDS, type CreateRoundInput, type GuessResult, type Round, type RoundChallenge, type SubmitGuessInput } from './round.types.js'
+import { MAX_ROUNDS, ROUND_TIME_LIMIT_SECONDS, type CreateRoundInput, type GuessResult, type Round, type RoundChallenge, type SubmitGuessInput } from './round.types.js'
 import { PokemonApiClient } from '../pokemon/pokemon.client.js'
 
 interface GameReader {
@@ -30,7 +30,12 @@ const DIFFICULTY_BONUS: Record<string, number> = {
 const TIME_BONUS_COEFFICIENT = 500
 const TIME_BONUS_DIVISOR = 30_000
 
-export function calculateScore(isCorrect: boolean, difficulty: string, elapsedMilliseconds: number): number {
+export function calculateScore(
+  isCorrect: boolean,
+  difficulty: string,
+  elapsedMilliseconds: number,
+  hintsUsed = 0,
+): number {
   if (!isCorrect) {
     return 0
   }
@@ -39,8 +44,9 @@ export function calculateScore(isCorrect: boolean, difficulty: string, elapsedMi
   const difficultyBonus = DIFFICULTY_BONUS[difficulty] ?? 0
   const remainingMs = Math.max(0, TIME_BONUS_DIVISOR - elapsedMilliseconds)
   const timeBonus = Math.floor((TIME_BONUS_COEFFICIENT * remainingMs) / TIME_BONUS_DIVISOR)
+  const hintPenalty = hintsUsed * 100
 
-  return baseScore + difficultyBonus + timeBonus
+  return Math.max(0, baseScore + difficultyBonus + timeBonus - hintPenalty)
 }
 
 export class RoundService {
@@ -63,6 +69,10 @@ export class RoundService {
     }
 
     if (game.status !== 'IN_PROGRESS') {
+      throw new GameNotInProgressError()
+    }
+
+    if (game.currentRound > MAX_ROUNDS) {
       throw new GameNotInProgressError()
     }
 
@@ -160,7 +170,7 @@ export class RoundService {
     const pokemonName = await this.pokemonPicker.getPokemonName(round.pokemonId)
     const isCorrect = normalizeGuess(input.answer) === normalizeGuess(pokemonName)
     const timeTaken = Math.max(0, Math.floor(elapsedMilliseconds / 1000))
-    const score = calculateScore(isCorrect, round.difficulty, elapsedMilliseconds)
+    const score = calculateScore(isCorrect, round.difficulty, elapsedMilliseconds, round.hintsUsed)
 
     let totalScore: number
     try {
