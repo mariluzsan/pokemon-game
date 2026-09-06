@@ -18,6 +18,8 @@ interface GamePageState {
   isSubmitting: boolean
   guessResult: boolean | null
   guessError: string | null
+  score: number | null
+  totalScore: number | null
 }
 
 export default function Game({ gameId }: GameProps) {
@@ -31,6 +33,8 @@ export default function Game({ gameId }: GameProps) {
     isSubmitting: false,
     guessResult: null,
     guessError: null,
+    score: null,
+    totalScore: null,
   })
   const [answer, setAnswer] = useState('')
 
@@ -90,11 +94,19 @@ export default function Game({ gameId }: GameProps) {
       return
     }
 
-    setState((prev) => ({ ...prev, isSubmitting: true, guessError: null, guessResult: null }))
+    setState((prev) => ({ ...prev, isSubmitting: true, guessError: null, guessResult: null, score: null, totalScore: null }))
 
     try {
       const result = await submitGuess(Number(gameId), state.round.id, answer)
-      setState((prev) => ({ ...prev, isSubmitting: false, guessResult: result.isCorrect }))
+      setState((prev) => ({
+        ...prev,
+        isSubmitting: false,
+        guessResult: result.isCorrect,
+        score: result.score,
+        totalScore: result.totalScore,
+      }))
+      // Clear answer field after submission
+      setAnswer('')
     } catch (error) {
       setState((prev) => ({
         ...prev,
@@ -169,7 +181,12 @@ export default function Game({ gameId }: GameProps) {
       )}
       {state.guessError && <p className="error">{state.guessError}</p>}
       {state.guessResult !== null && (
-        <p className="game-status">{state.guessResult ? 'Respuesta correcta.' : 'Respuesta incorrecta.'}</p>
+        <div className="game-status">
+          <p>{state.guessResult ? 'Respuesta correcta.' : 'Respuesta incorrecta.'}</p>
+          {state.score !== null && (
+            <p>Puntuación: {state.score} (Total: {state.totalScore})</p>
+          )}
+        </div>
       )}
     </main>
   )

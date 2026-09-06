@@ -26,3 +26,10 @@ export class RoundExpiredError extends Error {
   }
 }
 
+export class RoundAlreadyResolvedError extends Error {
+  constructor() {
+    super('La ronda ya ha sido resuelta.')
+    this.name = 'RoundAlreadyResolvedError'
+  }
+}
+

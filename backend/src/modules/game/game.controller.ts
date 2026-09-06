@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express'
 import { PokemonApiError } from '../pokemon/pokemon.client.js'
 import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, ValidationError } from './game.errors.js'
+import { RoundAlreadyResolvedError } from './round.repository.js'
 import { GameService } from './game.service.js'
 import { RoundService } from './round.service.js'
 
@@ -179,6 +180,16 @@ export async function submitGuessController(req: Request, res: Response) {
       res.status(409).json({
         error: {
           code: 'ROUND_EXPIRED',
+          message: error.message,
+        },
+      })
+      return
+    }
+
+    if (error instanceof RoundAlreadyResolvedError) {
+      res.status(409).json({
+        error: {
+          code: 'ROUND_ALREADY_RESOLVED',
           message: error.message,
         },
       })

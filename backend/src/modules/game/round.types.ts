@@ -30,4 +30,6 @@ export interface SubmitGuessInput {
 
 export interface GuessResult {
   isCorrect: boolean
+  score: number
+  totalScore: number
 }

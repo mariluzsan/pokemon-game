@@ -3,7 +3,8 @@ import { PokemonApiError } from '../pokemon/pokemon.client.js'
 import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, ValidationError } from './game.errors.js'
 import { normalizePlayerName } from './game.service.js'
 import { ROUND_TIME_LIMIT_SECONDS } from './round.types.js'
-import { RoundService } from './round.service.js'
+import { RoundAlreadyResolvedError } from './round.repository.js'
+import { RoundService, calculateScore } from './round.service.js'
 
 function testNormalizesPlayerName() {
   assert.equal(normalizePlayerName(' Ash '), 'Ash')
@@ -54,7 +55,7 @@ async function testCreatesRoundWithoutExposingPokemon() {
         }
       },
       findById: async () => null,
-      updateGuess: async () => undefined,
+      updateGuess: async () => 0,
     },
     { 
       selectRandomPokemon: async () => 25,
@@ -87,8 +88,10 @@ async function testChallengeIncludesConfiguredTimeLimit() {
         difficulty: 'EASY',
         startedAt: '2026-09-05T12:00:00.000Z',
         pokemonId: 25,
+        finishedAt: null,
+        isCorrect: null,
       }),
-      updateGuess: async () => undefined,
+      updateGuess: async () => 0,
     },
     {
       selectRandomPokemon: async () => 25,
@@ -111,11 +114,13 @@ async function testRoundExpiresAtConfiguredBoundary() {
     difficulty: 'EASY' as const,
     startedAt: '2026-09-05T12:00:00.000Z',
     pokemonId: 25,
+    finishedAt: null,
+    isCorrect: null,
   }
   const repository = {
     create: async () => { throw new Error('No debe crear otra ronda') },
     findById: async () => round,
-    updateGuess: async () => undefined,
+    updateGuess: async () => 0,
   }
   const pokemonPicker = {
     selectRandomPokemon: async () => 25,
@@ -146,7 +151,7 @@ async function testRejectsMissingGame() {
     { 
       create: async () => { throw new Error('No debe persistir') }, 
       findById: async () => null,
-      updateGuess: async () => undefined,
+      updateGuess: async () => 0,
     },
     { 
       selectRandomPokemon: async () => 25,
@@ -164,7 +169,7 @@ async function testRejectsFinishedGame() {
     { 
       create: async () => { throw new Error('No debe persistir') }, 
       findById: async () => null,
-      updateGuess: async () => undefined,
+      updateGuess: async () => 0,
     },
     { 
       selectRandomPokemon: async () => 25,
@@ -188,8 +193,10 @@ async function testRejectsChallengeFromAnotherGame() {
         difficulty: 'EASY',
         startedAt: '2026-09-05T12:01:00.000Z',
         pokemonId: 25,
+        finishedAt: null,
+        isCorrect: null,
       }),
-      updateGuess: async () => undefined,
+      updateGuess: async () => 0,
     },
     {
       selectRandomPokemon: async () => 25,
@@ -212,6 +219,8 @@ function createGuessRound(overrides: Partial<{ gameId: number; startedAt: string
     difficulty: 'EASY' as const,
     startedAt: overrides.startedAt ?? '2026-09-05T12:00:00.000Z',
     pokemonId: overrides.pokemonId ?? 25,
+    finishedAt: null,
+    isCorrect: null,
   }
 }
 
@@ -219,14 +228,14 @@ function createGuessService(options: {
   round?: ReturnType<typeof createGuessRound> | null
   pokemonName?: string
   now?: string
-  updateGuess?: (roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean) => Promise<void>
+  updateGuess?: (roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, score: number) => Promise<number>
 } = {}) {
   return new RoundService(
     { findById: async () => createGame() },
     {
       create: async () => { throw new Error('No debe crear otra ronda') },
       findById: async () => options.round === undefined ? createGuessRound() : options.round,
-      updateGuess: options.updateGuess ?? (async () => undefined),
+      updateGuess: options.updateGuess ?? (async () => 0),
     },
     {
       selectRandomPokemon: async () => 25,
@@ -238,25 +247,31 @@ function createGuessService(options: {
 }
 
 async function testSubmitsCorrectGuessAndPersistsOnlyEvaluation() {
-  let persisted: { roundId: number; timeTaken: number; isCorrect: boolean } | null = null
+  let persisted: { roundId: number; timeTaken: number; isCorrect: boolean; score: number } | null = null
   const roundService = createGuessService({
-    updateGuess: async (roundId, _finishedAt, timeTaken, isCorrect) => {
-      persisted = { roundId, timeTaken, isCorrect }
+    updateGuess: async (roundId, _finishedAt, timeTaken, isCorrect, gameId, score) => {
+      persisted = { roundId, timeTaken, isCorrect, score }
+      return 1234 // mock totalScore
     },
   })
 
   const result = await roundService.submitGuess({ gameId: 7, roundId: 11, answer: '  PiKaChU  ' })
 
-  assert.deepEqual(result, { isCorrect: true })
-  assert.deepEqual(persisted, { roundId: 11, timeTaken: 29, isCorrect: true })
+  assert.equal(result.isCorrect, true)
+  assert.equal(typeof result.score, 'number')
+  assert.equal(typeof result.totalScore, 'number')
+  assert.deepEqual(persisted, { roundId: 11, timeTaken: 29, isCorrect: true, score: result.score })
 }
 
 async function testSubmitsIncorrectGuessWithoutRevealingName() {
-  const roundService = createGuessService()
+  const roundService = createGuessService({
+    updateGuess: async () => 0, // totalScore remains 0 for incorrect answer
+  })
 
   const result = await roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'charmander' })
 
-  assert.deepEqual(result, { isCorrect: false })
+  assert.equal(result.isCorrect, false)
+  assert.equal(result.score, 0)
   assert.equal('pokemonId' in result, false)
   assert.equal('pokemonName' in result, false)
 }
@@ -332,6 +347,102 @@ async function testMapsPokemonApiFailureDuringGuess() {
   )
 }
 
+function testCalculateScoreWithCorrectAnswerEasy() {
+  const score = calculateScore(true, 'EASY', 5000)
+  // base 1000 + difficulty_bonus 0 + time_bonus floor(500 * (30000 - 5000) / 30000) = floor(500 * 25000 / 30000) = floor(416.67) = 416
+  assert.equal(score, 1000 + 0 + 416)
+  assert.equal(score, 1416)
+}
+
+function testCalculateScoreWithCorrectAnswerMedium() {
+  const score = calculateScore(true, 'MEDIUM', 5000)
+  // base 1000 + difficulty_bonus 200 + time_bonus 416 = 1616
+  assert.equal(score, 1000 + 200 + 416)
+  assert.equal(score, 1616)
+}
+
+function testCalculateScoreWithCorrectAnswerHard() {
+  const score = calculateScore(true, 'HARD', 5000)
+  // base 1000 + difficulty_bonus 400 + time_bonus 416 = 1816
+  assert.equal(score, 1000 + 400 + 416)
+  assert.equal(score, 1816)
+}
+
+function testCalculateScoreWithIncorrectAnswer() {
+  const score = calculateScore(false, 'EASY', 5000)
+  assert.equal(score, 0)
+}
+
+function testCalculateScoreWithMaxTimeBonus() {
+  // elapsed 0, remaining 30000
+  // time_bonus floor(500 * 30000 / 30000) = floor(500) = 500
+  const score = calculateScore(true, 'EASY', 0)
+  assert.equal(score, 1000 + 0 + 500)
+  assert.equal(score, 1500)
+}
+
+function testCalculateScoreWithZeroTimeBonus() {
+  // elapsed 30000, remaining 0
+  // time_bonus floor(500 * 0 / 30000) = floor(0) = 0
+  const score = calculateScore(true, 'EASY', 30000)
+  assert.equal(score, 1000 + 0 + 0)
+  assert.equal(score, 1000)
+}
+
+function testCalculateScoreWithFlooringEffect() {
+  // elapsed 1000, remaining 29000
+  // time_bonus floor(500 * 29000 / 30000) = floor(483.33) = 483
+  const score = calculateScore(true, 'EASY', 1000)
+  assert.equal(score, 1000 + 0 + 483)
+  assert.equal(score, 1483)
+}
+
+async function testSubmitsGuessWithScoreAndTotalScore() {
+  let persistedData: { score: number; totalScore: number } | null = null
+  const roundService = createGuessService({
+    updateGuess: async (roundId, _finishedAt, timeTaken, isCorrect, gameId, score) => {
+      // Mock to capture the score calculation
+      persistedData = { score, totalScore: 1234 } // totalScore is what would be returned
+      return 1234
+    },
+  })
+
+  const result = await roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'pikachu' })
+
+  assert.equal(result.isCorrect, true)
+  assert.equal(typeof result.score, 'number')
+  assert.equal(typeof result.totalScore, 'number')
+  assert.equal(result.totalScore, 1234)
+}
+
+async function testRejectsSecondGuessForSameRound() {
+  // Create a round that is already finished
+  const finishedRound = createGuessRound()
+  
+  const roundService = new RoundService(
+    { findById: async () => createGame() },
+    {
+      create: async () => { throw new Error('No debe crear otra ronda') },
+      findById: async () => finishedRound,
+      updateGuess: async () => {
+        // Simulate that the round is already resolved
+        throw new RoundAlreadyResolvedError()
+      },
+    },
+    {
+      selectRandomPokemon: async () => 25,
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+      getPokemonName: async () => 'pikachu',
+    },
+    () => new Date('2026-09-05T12:00:29.999Z'),
+  )
+
+  await assert.rejects(
+    () => roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'pikachu' }),
+    RoundAlreadyResolvedError,
+  )
+}
+
 async function runTests() {
   testNormalizesPlayerName()
   testRejectsMissingPlayerName()
@@ -350,6 +461,17 @@ async function runTests() {
   await testRejectsGuessFromAnotherGame()
   await testRejectsInvalidGuessIdentifiers()
   await testMapsPokemonApiFailureDuringGuess()
+  
+  // US-06 tests
+  testCalculateScoreWithCorrectAnswerEasy()
+  testCalculateScoreWithCorrectAnswerMedium()
+  testCalculateScoreWithCorrectAnswerHard()
+  testCalculateScoreWithIncorrectAnswer()
+  testCalculateScoreWithMaxTimeBonus()
+  testCalculateScoreWithZeroTimeBonus()
+  testCalculateScoreWithFlooringEffect()
+  await testSubmitsGuessWithScoreAndTotalScore()
+  await testRejectsSecondGuessForSameRound()
 
   console.log('Game service tests passed')
 }
