@@ -1,6 +1,7 @@
 import type { QueryResultRow } from 'pg'
 import { pool } from '../../infrastructure/database/database.js'
 import type { Game } from './game.types.js'
+import type { PerformanceSnapshot } from './game.types.js'
 import { MAX_ROUNDS } from './round.types.js'
 import type { Round, RoundCompletion } from './round.types.js'
 import { RoundNotCompletedError } from './game.errors.js'
@@ -14,6 +15,13 @@ interface RoundRow extends QueryResultRow {
   started_at: Date
   finished_at?: Date | null
   hints_used: number
+}
+
+interface PerformanceSnapshotRow extends QueryResultRow {
+  correct_answers: number
+  incorrect_answers: number
+  average_response_time_seconds: number
+  total_hints_used: number
 }
 
 function mapRoundRow(row: RoundRow): Round {
@@ -101,6 +109,28 @@ export class RoundRepository {
       pokemonId: row.pokemon_id || 0,
       finishedAt: row.finished_at || null,
       isCorrect: (row as any).is_correct ?? null,
+    }
+  }
+
+  async getPerformanceSnapshot(gameId: number): Promise<PerformanceSnapshot> {
+    const result = await pool.query<PerformanceSnapshotRow>(
+      `SELECT
+         COUNT(*) FILTER (WHERE finished_at IS NOT NULL AND is_correct IS TRUE)::INTEGER AS correct_answers,
+         COUNT(*) FILTER (WHERE finished_at IS NOT NULL AND is_correct IS FALSE)::INTEGER AS incorrect_answers,
+         COALESCE(AVG(time_taken) FILTER (WHERE finished_at IS NOT NULL), 0)::FLOAT8 AS average_response_time_seconds,
+         COALESCE(SUM(hints_used) FILTER (WHERE finished_at IS NOT NULL), 0)::INTEGER AS total_hints_used
+       FROM rounds
+       WHERE game_id = $1`,
+      [gameId],
+    )
+
+    const row = result.rows[0]
+
+    return {
+      correctAnswers: row.correct_answers,
+      incorrectAnswers: row.incorrect_answers,
+      averageResponseTimeSeconds: row.average_response_time_seconds,
+      totalHintsUsed: row.total_hints_used,
     }
   }
 

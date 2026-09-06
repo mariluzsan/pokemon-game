@@ -13,3 +13,10 @@ export interface CreateGameInput {
   playerName: string
 }
 
+export interface PerformanceSnapshot {
+  correctAnswers: number
+  incorrectAnswers: number
+  averageResponseTimeSeconds: number
+  totalHintsUsed: number
+}
+

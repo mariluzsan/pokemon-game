@@ -98,6 +98,18 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Registro de desempeño US-15
+
+- Objetivo: implementar exclusivamente US-15 para consolidar una fuente autoritativa de desempeño basada en datos ya persistidos por partida y ronda.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar criterios/documentación de Sprint 3, esquema PostgreSQL, flujo de rondas, expiración, scoring y pistas; evitar migraciones y no adelantar US-16, US-17 ni US-18.
+- Resultado propuesto: crear `PerformanceService` interno y una consulta agregada en `RoundRepository` que obtenga solo para una partida existente las señales respaldadas por la documentación: `correctAnswers`, `incorrectAnswers`, `averageResponseTimeSeconds` y `totalHintsUsed`, excluyendo rondas activas mediante `finished_at IS NOT NULL`.
+- Decisión: aceptada. No se crea endpoint público ni migración porque `rounds` ya almacena `is_correct`, `time_taken`, `hints_used`, `finished_at` y `score`, y `games` ya conserva el contexto global de la partida.
+- Decisiones descartadas: tabla `performance`, columnas acumuladas redundantes, métricas enviadas por frontend, clasificación de nivel, cambios de dificultad, cambios de selección de Pokémon y recálculo de score.
+- Verificación: pruebas unitarias del nuevo servicio, suite backend completa, build frontend, lint frontend, `git diff --check`, revisión de errores del editor y SQL manual equivalente documentado.
+- Archivos afectados: `backend/src/modules/game/performance.service.ts`, `backend/src/modules/game/performance.service.test.ts`, `backend/src/modules/game/round.repository.ts`, `backend/src/modules/game/game.types.ts`, `backend/package.json`, `MANUAL_TEST_PLAN_US15.md` y este registro.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
+
 ### 2026-09-06 - Validación de spoilers US-13
 
 - Objetivo: impedir desde backend que una pista entregue explícitamente el nombre del Pokémon objetivo.
