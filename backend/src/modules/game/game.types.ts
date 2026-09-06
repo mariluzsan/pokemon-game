@@ -1,9 +1,11 @@
+export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD'
+
 export interface Game {
   id: number
   playerName: string
   totalScore: number
   currentRound: number
-  difficulty: 'EASY' | 'MEDIUM' | 'HARD'
+  difficulty: Difficulty
   status: 'IN_PROGRESS' | 'FINISHED'
   startedAt: string
   finishedAt: string | null

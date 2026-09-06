@@ -1,10 +1,12 @@
-import type { QueryResultRow } from 'pg'
+import type { PoolClient, QueryResultRow } from 'pg'
 import { pool } from '../../infrastructure/database/database.js'
 import type { Game } from './game.types.js'
 import type { PerformanceSnapshot } from './game.types.js'
 import { MAX_ROUNDS } from './round.types.js'
 import type { Round, RoundCompletion } from './round.types.js'
 import { RoundNotCompletedError } from './game.errors.js'
+import { mapPerformanceLevelToDifficulty } from './difficulty.service.js'
+import { calculatePerformanceLevel } from './performance.service.js'
 
 interface RoundRow extends QueryResultRow {
   id: number
@@ -43,6 +45,41 @@ export class RoundAlreadyResolvedError extends Error {
 }
 
 export class RoundRepository {
+  private async adaptGameDifficulty(client: PoolClient, gameId: number) {
+    const gameResult = await client.query<{ difficulty: Game['difficulty'] }>(
+      `SELECT difficulty
+       FROM games
+       WHERE id = $1
+       FOR UPDATE`,
+      [gameId],
+    )
+
+    const snapshotResult = await client.query<PerformanceSnapshotRow>(
+      `SELECT
+         COUNT(*) FILTER (WHERE finished_at IS NOT NULL AND is_correct IS TRUE)::INTEGER AS correct_answers,
+         COUNT(*) FILTER (WHERE finished_at IS NOT NULL AND is_correct IS FALSE)::INTEGER AS incorrect_answers,
+         COALESCE(AVG(time_taken) FILTER (WHERE finished_at IS NOT NULL), 0)::FLOAT8 AS average_response_time_seconds,
+         COALESCE(SUM(hints_used) FILTER (WHERE finished_at IS NOT NULL), 0)::INTEGER AS total_hints_used
+       FROM rounds
+       WHERE game_id = $1`,
+      [gameId],
+    )
+
+    const snapshotRow = snapshotResult.rows[0]
+    const performanceLevel = calculatePerformanceLevel({
+      correctAnswers: snapshotRow.correct_answers,
+      incorrectAnswers: snapshotRow.incorrect_answers,
+      averageResponseTimeSeconds: snapshotRow.average_response_time_seconds,
+      totalHintsUsed: snapshotRow.total_hints_used,
+    }).level
+    const difficulty = mapPerformanceLevelToDifficulty(gameResult.rows[0].difficulty, performanceLevel)
+
+    await client.query(
+      `UPDATE games SET difficulty = $2 WHERE id = $1`,
+      [gameId, difficulty],
+    )
+  }
+
   async create(gameId: number, roundNumber: number, pokemonId: number, difficulty: Game['difficulty']): Promise<Round> {
     const client = await pool.connect()
 
@@ -180,6 +217,8 @@ export class RoundRepository {
         [roundId, finishedAt, timeTaken, isCorrect, score],
       )
 
+      await this.adaptGameDifficulty(client, gameId)
+
       // Actualizar total_score de la partida
       const updateGameResult = await client.query(
         `UPDATE games
@@ -255,6 +294,8 @@ export class RoundRepository {
          WHERE id = $1 AND game_id = $2`,
         [roundId, gameId, finishedAt, 30],
       )
+
+      await this.adaptGameDifficulty(client, gameId)
 
       const gameResult = await client.query(
         `UPDATE games

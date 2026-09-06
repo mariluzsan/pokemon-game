@@ -98,6 +98,35 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Adaptacion de dificultad US-17
+
+- Objetivo: adaptar la dificultad vigente de cada partida usando el nivel ya
+  calculado por US-16, sin modificar la selección de Pokémon de US-18.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar los criterios de US-17, el flujo transaccional de
+  resolución y expiración, la persistencia de US-15 y el clasificador de
+  US-16; mantener las rondas históricas y evitar IA, PokéAPI y frontend.
+- Decisión aceptada por el Tech Lead: tras cada ronda completada, inclusive una
+  expirada, mover `games.difficulty` un único nivel hacia el
+  `PerformanceLevel` de US-16. No hay mínimo de rondas ni saltos directos entre
+  `EASY` y `HARD`.
+- Implementación: `mapPerformanceLevelToDifficulty` es una función pura. Las
+  transacciones que resuelven o expiran una ronda obtienen el snapshot de la
+  partida, reutilizan `calculatePerformanceLevel` de US-16 y actualizan
+  `games.difficulty` antes de confirmar. `rounds.difficulty` no se actualiza.
+- Decisiones descartadas: mapping directo entre nivel y dificultad, recalcular
+  scoring o pistas, endpoint nuevo, control de frontend, migración y cambios a
+  la selección de Pokémon.
+- Verificación: compilación y suite backend con pruebas de las nueve
+  combinaciones del mapping. Las pruebas no usan IA ni PokéAPI reales.
+- Archivos afectados: `backend/src/modules/game/difficulty.service.ts`,
+  `backend/src/modules/game/difficulty.service.test.ts`,
+  `backend/src/modules/game/round.repository.ts`,
+  `backend/src/modules/game/game.types.ts`, `backend/package.json`,
+  `docs/DIFFICULTY_RULES.md`, `MANUAL_TEST_PLAN_US17.md` y este registro.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del
+  usuario.
+
 ### 2026-09-06 - Registro de desempeño US-15
 
 - Objetivo: implementar exclusivamente US-15 para consolidar una fuente autoritativa de desempeño basada en datos ya persistidos por partida y ronda.
