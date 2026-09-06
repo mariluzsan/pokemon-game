@@ -2,7 +2,7 @@ import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, Validatio
 import { GameRepository } from '../game/game.repository.js'
 import { RoundAlreadyResolvedError, RoundRepository } from '../game/round.repository.js'
 import { HintRepository } from './hint.repository.js'
-import { SafeHintGenerator, type GeneratedHint, type HintGenerator } from './hint.generator.js'
+import { SafeHintGenerator, AnthropicHintGenerator, FallbackHintGenerator, type GeneratedHint, type HintGenerator } from './hint.generator.js'
 import { HintSafetyValidator } from './hint-safety.validator.js'
 import { PokemonApiClient } from '../pokemon/pokemon.client.js'
 import { HintLimitReachedError } from './hint.errors.js'
@@ -36,8 +36,11 @@ export class HintService {
     private readonly hintRepository: HintWriter = new HintRepository(),
     private readonly now: () => Date = () => new Date(),
     private readonly pokemonReader: PokemonHintReader = new PokemonApiClient(),
-    private readonly hintGenerator: HintGenerator = new SafeHintGenerator(),
-    private readonly hintSafetyValidator = new HintSafetyValidator(),
+    private readonly hintGenerator: HintGenerator = new SafeHintGenerator(
+      new AnthropicHintGenerator(),
+      new FallbackHintGenerator(),
+      new HintSafetyValidator(),
+    ),
   ) {}
 
   async requestHint(input: RequestHintInput): Promise<Hint> {
@@ -78,14 +81,19 @@ export class HintService {
       gameId: input.gameId,
       createdAt: requestedAt,
       generate: async (level) => {
-        const generated = await this.hintGenerator.generate({
+        // La generación y validación de seguridad ocurren dentro de hintGenerator.generate()
+        // SafeHintGenerator maneja:
+        // 1. Intentar IA
+        // 2. Validar seguridad IA
+        // 3. Si falla → intentar fallback
+        // 4. Validar seguridad fallback
+        // 5. Si ambas fallan → lanzar error
+        return this.hintGenerator.generate({
           pokemonName: pokemon.name,
           types: pokemon.types,
           level,
           difficulty: round.difficulty,
         })
-        this.hintSafetyValidator.validate(generated.content, pokemon.name)
-        return generated
       },
     })
   }

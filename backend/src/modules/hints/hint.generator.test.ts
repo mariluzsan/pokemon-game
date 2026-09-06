@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { AnthropicHintGenerator, SafeHintGenerator } from './hint.generator.js'
+import { AnthropicHintGenerator, SafeHintGenerator, FallbackHintGenerator } from './hint.generator.js'
+import { HintSafetyValidator } from './hint-safety.validator.js'
 
 function response(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as Response
@@ -39,10 +40,58 @@ async function testMissingConfigurationUsesFallbackPath() {
   assert.equal(result.source, 'FALLBACK')
 }
 
+async function testUnsafeAIContentUsesFallback() {
+  // US-14: Si IA devuelve contenido inseguro (contiene nombre del Pokémon),
+  // SafeHintGenerator debe intentar fallback
+  const generator = new SafeHintGenerator(
+    { generate: async () => ({ content: 'El Pokémon es Pikachu.', source: 'AI' }) },
+    { generate: async () => ({ content: 'Es de tipo electric. Busca sus características típicas.', source: 'FALLBACK' }) },
+    new HintSafetyValidator(),
+  )
+
+  const result = await generator.generate({ pokemonName: 'pikachu', types: ['electric'], level: 1, difficulty: 'EASY' })
+  assert.equal(result.source, 'FALLBACK')
+  assert.match(result.content, /electric/)
+  assert.equal(result.content.toLowerCase().includes('pikachu'), false)
+}
+
+async function testFallbackIsProgressive() {
+  // US-14: Fallback debe ser progresivo por level
+  const fallback = new FallbackHintGenerator()
+
+  const hint1 = await fallback.generate({ pokemonName: 'pikachu', types: ['electric'], level: 1, difficulty: 'EASY' })
+  const hint2 = await fallback.generate({ pokemonName: 'pikachu', types: ['electric'], level: 2, difficulty: 'EASY' })
+  const hint3 = await fallback.generate({ pokemonName: 'pikachu', types: ['electric'], level: 3, difficulty: 'EASY' })
+
+  // Todos deben ser diferentes
+  assert.notEqual(hint1.content, hint2.content)
+  assert.notEqual(hint2.content, hint3.content)
+  assert.notEqual(hint1.content, hint3.content)
+
+  // Ninguno debe revelar el nombre
+  assert.equal(hint1.content.toLowerCase().includes('pikachu'), false)
+  assert.equal(hint2.content.toLowerCase().includes('pikachu'), false)
+  assert.equal(hint3.content.toLowerCase().includes('pikachu'), false)
+}
+
+async function testFallbackWithDualTypes() {
+  // US-14: Fallback debe manejar Pokémon con dos tipos
+  const fallback = new FallbackHintGenerator()
+  const hint = await fallback.generate({ pokemonName: 'charmander', types: ['fire', 'flying'], level: 1, difficulty: 'EASY' })
+
+  assert.equal(hint.source, 'FALLBACK')
+  assert.match(hint.content, /fire/)
+  assert.match(hint.content, /flying/)
+  assert.equal(hint.content.toLowerCase().includes('charmander'), false)
+}
+
 async function runTests() {
   await testAnthropicRequestAndResponse()
   await testInvalidAIFormatUsesFallback()
   await testMissingConfigurationUsesFallbackPath()
+  await testUnsafeAIContentUsesFallback()
+  await testFallbackIsProgressive()
+  await testFallbackWithDualTypes()
   console.log('Hint generator tests passed')
 }
 

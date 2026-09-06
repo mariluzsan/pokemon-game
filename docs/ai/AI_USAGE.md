@@ -45,6 +45,43 @@ La generación de pistas se trata como una integración no confiable: timeout, e
   recibe un `HintGenerator` inyectado. La suite no requiere internet ni una
   clave real.
 
+### US-14 - Fallback seguro cuando falla la IA
+
+- Fecha: 2026-09-06.
+- Propósito: garantizar que un fallo de IA (timeout, error HTTP, respuesta
+  inválida, o pista que revela el nombre) no rompa la partida, ofereciendo una
+  pista alternativa determinista y segura.
+- Mecanismo: `SafeHintGenerator` encapsula el flujo:
+  1. Intenta generar pista con `AnthropicHintGenerator`.
+  2. Si falla (error, timeout, credencial ausente, respuesta vacía/inválida) →
+     intenta `FallbackHintGenerator`.
+  3. Si IA devuelve contenido válido pero inseguro (contiene nombre normalizado
+     del Pokémon) → rechaza IA e intenta `FallbackHintGenerator`.
+  4. Valida `FallbackHintGenerator` también con la misma regla de seguridad.
+  5. Si fallback es válido y seguro → persiste y devuelve.
+  6. Si fallback también es inseguro (excepcional) → lanza `UnsafeHintError`.
+- Datos de fallback: tipo(s) del Pokémon obtenidos de PokéAPI.
+- Estrategia: fallback es progresivo (level 1-3), menciona tipo(s) pero NO el
+  nombre, y varía entre tipo único y dual. Determinista: mismo Pokémon + mismo
+  level → mismo fallback.
+- Persistencia: `hints.source` registra `FALLBACK` para distinguir de `AI`.
+  El contador `hints_used`, `level` y `penalty` se aplican idénticamente
+  independientemente del source. Una solicitud válida consume exactamente una pista.
+- Seguridad: credenciales del proveedor siguen siendo internas; el fallback
+  no usa secretos; el nombre correcto no se devuelve en error ni en éxito;
+  contenido de IA fallido o inseguro no se persiste ni se expone.
+- Pruebas:
+  - `SafeHintGenerator` con mock de IA error → devuelve fallback.
+  - `SafeHintGenerator` con mock de IA insegura → devuelve fallback.
+  - `FallbackHintGenerator` es progresivo (level 1, 2, 3 → contenidos distintos).
+  - Fallback con dual-type es válido y progresivo.
+  - Validación de seguridad se aplica a fallback; si fallara, lanza excepción.
+- Integración: `HintService` inyecta `SafeHintGenerator` con `validator` en
+  producción. Los tests pueden inyectar generadores mock. Sin cambios en
+  endpoint, controller o contrato de respuesta.
+- Límites: fallback NO saltea `MAX_HINTS_PER_ROUND`; si se alcanza límite antes
+  de solicitar, se rechaza sin intentar IA ni fallback.
+
 #### Uso de IA como agente de desarrollo
 
 - Herramienta/modelo: GitHub Copilot.

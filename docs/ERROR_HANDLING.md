@@ -29,13 +29,14 @@ Formato:
 
 No se exponen stack traces, SQL, credenciales ni claves. Los controladores traducen errores del dominio a respuestas HTTP coherentes.
 
-En US-10, un timeout, error HTTP, credencial ausente, respuesta vacía o
+En US-10 y US-14, un timeout, error HTTP, credencial ausente, respuesta vacía o
 salida inválida del proveedor activa el `FallbackHintGenerator`; no se expone
 el detalle interno ni se interrumpe la partida. Los fallos al obtener datos
 mínimos desde PokéAPI se responden como `POKEAPI_UNAVAILABLE`.
 
 En US-13, si una pista generada contiene el nombre normalizado del Pokémon
-objetivo, se responde `422 UNSAFE_HINT` con un mensaje genérico. El contenido,
-el nombre objetivo, el prompt y los detalles del proveedor no se incluyen en
-la respuesta ni en logs. La transacción se revierte antes de persistir la pista
-o aplicar su penalización.
+objetivo, internamente se rechaza y se intenta con fallback (US-14). Si el fallback
+también es inseguro (caso excepcional), se responde `422 UNSAFE_HINT` con un mensaje
+genérico. El contenido, el nombre objetivo, el prompt y los detalles del proveedor
+no se incluyen en la respuesta ni en logs. La transacción se revierte antes de
+persistir la pista o aplicar su penalización.

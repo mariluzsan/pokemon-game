@@ -32,14 +32,36 @@ function isValidHintContent(content: string): boolean {
 
 export class FallbackHintGenerator implements HintGenerator {
   async generate(input: HintGenerationInput): Promise<{ content: string; source: 'FALLBACK' }> {
-    const type = input.types[0] || 'misterioso'
-    const content = input.level === 1
-      ? `Observa su apariencia: pertenece a una familia relacionada con el tipo ${type}.`
-      : input.level === 2
-        ? `Su naturaleza se reconoce por sus rasgos de tipo ${type} y su forma de combatir.`
-        : `Busca un personaje de tipo ${type} con una silueta y habilidades muy características.`
+    const types = input.types.length > 0 ? input.types : ['desconocido']
+    const primaryType = types[0]
+    const hasMultipleTypes = types.length > 1
+    const secondaryType = types[1]
 
-    return { content, source: 'FALLBACK' }
+    const levelBasedHints = {
+      1: () => {
+        if (hasMultipleTypes) {
+          return `Es de tipo ${primaryType} y ${secondaryType}. Combina características de ambos.`
+        }
+        return `Pertenece al tipo ${primaryType}. Busca sus características típicas.`
+      },
+      2: () => {
+        if (hasMultipleTypes) {
+          return `Su dualidad de tipo ${primaryType}/${secondaryType} define sus habilidades y debilidades.`
+        }
+        return `Como personaje de tipo ${primaryType}, posee atributos muy específicos de este grupo.`
+      },
+      3: () => {
+        if (hasMultipleTypes) {
+          return `Reconócelo por su naturaleza dual de ${primaryType} y ${secondaryType}, única en su clase.`
+        }
+        return `Es uno de los más representativos del tipo ${primaryType} en toda la región.`
+      },
+    }
+
+    const hint = levelBasedHints[input.level as keyof typeof levelBasedHints]?.()
+      || `Observa: es de tipo ${primaryType}.`
+
+    return { content: hint, source: 'FALLBACK' }
   }
 }
 
@@ -106,25 +128,55 @@ export class AnthropicHintGenerator implements HintGenerator {
   }
 }
 
+/**
+ * Valida que el contenido de una pista sea seguro (no revele el nombre del Pokémon).
+ * Se utiliza para validar tanto pistas de IA como pistas de fallback.
+ */
+export interface HintSafetyValidator {
+  validate(content: string, pokemonName: string): void
+}
+
 export class SafeHintGenerator implements HintGenerator {
   constructor(
     private readonly ai: HintGenerator = new AnthropicHintGenerator(),
     private readonly fallback: HintGenerator = new FallbackHintGenerator(),
+    private readonly validator: HintSafetyValidator | null = null,
   ) {}
 
   async generate(input: HintGenerationInput): Promise<{ content: string; source: 'AI' | 'FALLBACK' }> {
+    // Intenta IA
     try {
       const generated = await this.ai.generate(input)
       if (isValidHintContent(generated.content)) {
-        return generated
+        // Valida contenido de IA
+        if (this.validator) {
+          try {
+            this.validator.validate(generated.content, input.pokemonName)
+            return generated // ✓ IA exitosa y segura
+          } catch (safetyError) {
+            // IA no es segura, intenta fallback
+            console.error('Pista de IA no cumple validación de seguridad, usando fallback')
+          }
+        } else {
+          return generated // Sin validador, confía en IA
+        }
       }
     } catch (error) {
-      // Solo se registra una categoria operacional, nunca secretos ni prompts.
+      // Solo se registra una categoría operacional, nunca secretos ni prompts.
       if (error instanceof AIUnavailableError) {
         console.error('Proveedor Anthropic no disponible', { reason: error.reason })
       }
     }
 
-    return this.fallback.generate(input)
+    // Usa fallback
+    const fallbackGenerated = await this.fallback.generate(input)
+
+    // Valida contenido de fallback
+    if (this.validator) {
+      this.validator.validate(fallbackGenerated.content, input.pokemonName)
+      // Si pasa, retorna fallback. Si falla, lanza UnsafeHintError
+    }
+
+    return fallbackGenerated
   }
 }

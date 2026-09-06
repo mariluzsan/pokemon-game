@@ -208,7 +208,9 @@ Errores previstos:
 ### POST `/api/games/:gameId/rounds/:roundId/hints`
 
 Genera y registra la siguiente pista progresiva de una ronda vigente mediante
-el proveedor de IA configurado en backend. No requiere body y no admite que el cliente determine el Pokémon, el contenido,
+el proveedor de IA configurado en backend, o mediante un fallback determinista
+si la IA no está disponible o devuelve contenido inseguro (US-14). No requiere
+body y no admite que el cliente determine el Pokémon, el contenido,
 la penalización, la dificultad ni el nivel de la pista.
 
 Respuesta exitosa `201 Created`:
@@ -230,8 +232,19 @@ La respuesta no incluye `pokemonId`, `pokemon_id`, el nombre ni la respuesta
 correcta. `content`, `penalty`, `totalScore`, `hintsUsed` y `hintsRemaining`
 son calculados por el backend después de la persistencia. `penalty` es el costo
 de la pista solicitada y `totalScore` ya refleja su descuento, limitado a cero.
-Su origen se conserva
-solo en la base de datos mediante `source` (`AI` o `FALLBACK`).
+El origen de la pista (`AI` o `FALLBACK`) se conserva solo en la base de datos
+mediante `source`. El cliente no puede distinguir entre una pista de IA exitosa
+y una pista de fallback; ambas se devuelven con éxito `201`.
+
+Flujo interno (US-10, US-14):
+1. Intenta generar pista mediante proveedor de IA.
+2. Si falla (timeout, error HTTP, credencial ausente, respuesta vacía o inválida)
+   → intenta fallback.
+3. Si IA genera contenido válido pero contiene el nombre del Pokémon (validación
+   de seguridad de US-13) → rechaza IA e intenta fallback.
+4. Valida fallback con la misma regla de seguridad.
+5. Persiste la pista exitosa (IA o fallback) e incrementa counters.
+6. Si ambas fallan o ambas son inseguras (excepcional) → error.
 
 Errores previstos:
 
@@ -241,7 +254,7 @@ Errores previstos:
 - `409 ROUND_ALREADY_RESOLVED` cuando la ronda ya fue resuelta.
 - `409 ROUND_EXPIRED` cuando la ronda alcanzó el límite de tiempo.
 - `409 HINT_LIMIT_REACHED` cuando ya se solicitaron tres pistas en la ronda.
-- `422 UNSAFE_HINT` cuando la salida generada contiene el nombre del Pokémon objetivo; no se persiste, no incrementa el uso ni aplica penalización.
+- `422 UNSAFE_HINT` cuando incluso el fallback no puede generar una pista segura (caso excepcional); no se persiste, no incrementa el uso ni aplica penalización.
 - `503 POKEAPI_UNAVAILABLE` cuando no fue posible obtener los datos mínimos del Pokémon.
 - `500 DATABASE_ERROR` cuando no fue posible registrar la solicitud.
 
