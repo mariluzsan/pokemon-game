@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express'
 import { PokemonApiError } from '../pokemon/pokemon.client.js'
-import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, ValidationError } from './game.errors.js'
+import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, RoundNotCompletedError, RoundNotExpiredError, ValidationError } from './game.errors.js'
 import { RoundAlreadyResolvedError } from './round.repository.js'
 import { GameService } from './game.service.js'
 import { RoundService } from './round.service.js'
@@ -69,6 +69,16 @@ export async function createRoundController(req: Request, res: Response) {
       res.status(409).json({
         error: {
           code: 'GAME_NOT_IN_PROGRESS',
+          message: error.message,
+        },
+      })
+      return
+    }
+
+    if (error instanceof RoundNotCompletedError) {
+      res.status(409).json({
+        error: {
+          code: 'ROUND_NOT_COMPLETED',
           message: error.message,
         },
       })
@@ -214,6 +224,35 @@ export async function submitGuessController(req: Request, res: Response) {
         message: 'No fue posible registrar la respuesta.',
       },
     })
+  }
+}
+
+export async function expireRoundController(req: Request, res: Response) {
+  try {
+    const completion = await roundService.expireRound(
+      Number(req.params.gameId),
+      Number(req.params.roundId),
+    )
+
+    res.status(200).json({ completion })
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(400).json({ error: { code: 'VALIDATION_ERROR', message: error.message } })
+      return
+    }
+
+    if (error instanceof GameNotFoundError) {
+      res.status(404).json({ error: { code: 'GAME_NOT_FOUND', message: error.message } })
+      return
+    }
+
+    if (error instanceof RoundNotExpiredError) {
+      res.status(409).json({ error: { code: 'ROUND_NOT_EXPIRED', message: error.message } })
+      return
+    }
+
+    console.error('Error al registrar expiracion de ronda')
+    res.status(500).json({ error: { code: 'DATABASE_ERROR', message: 'No fue posible registrar la expiracion.' } })
   }
 }
 

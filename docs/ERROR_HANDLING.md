@@ -17,6 +17,8 @@ Formato:
 | `ROUND_NOT_FOUND` | Ronda inexistente |
 | `INVALID_GUESS` | Intento inválido |
 | `ROUND_EXPIRED` | La ronda ya superó el tiempo límite |
+| `ROUND_NOT_EXPIRED` | La ronda todavía no alcanza el tiempo límite |
+| `ROUND_NOT_COMPLETED` | La ronda actual debe resolverse antes de crear la siguiente |
 | **`ROUND_ALREADY_RESOLVED`** | **La ronda ya fue resuelta y no acepta otro intento** |
 | `HINT_LIMIT_REACHED` | Límite de pistas alcanzado |
 | `AI_UNAVAILABLE` | IA no disponible |

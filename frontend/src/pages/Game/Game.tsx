@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import PokemonChallenge from '../../components/PokemonChallenge/PokemonChallenge'
 import GameButton from '../../components/GameButton/GameButton'
 import Timer from '../../components/Timer/Timer'
-import { createRound, getRoundChallenge, submitGuess, type Round, type RoundChallenge } from '../../services/api'
+import { createRound, expireRound, getRoundChallenge, submitGuess, type Round, type RoundChallenge } from '../../services/api'
 import './Game.css'
 
 interface GameProps {
@@ -21,6 +21,7 @@ interface GamePageState {
   guessError: string | null
   score: number | null
   totalScore: number | null
+  gameStatus: 'IN_PROGRESS' | 'FINISHED'
 }
 
 export default function Game({ gameId }: GameProps) {
@@ -35,8 +36,36 @@ export default function Game({ gameId }: GameProps) {
     guessError: null,
     score: null,
     totalScore: null,
+    gameStatus: 'IN_PROGRESS',
   })
   const [answer, setAnswer] = useState('')
+
+  const loadNextRound = useCallback(async () => {
+    setState((prev) => ({
+      ...prev,
+      isLoading: true,
+      error: null,
+      round: null,
+      challenge: null,
+      roundResult: null,
+      guessError: null,
+      score: null,
+      totalScore: null,
+    }))
+    setAnswer('')
+
+    try {
+      const roundData = await createRound(Number(gameId))
+      const challengeData = await getRoundChallenge(Number(gameId), roundData.id)
+      setState((prev) => ({ ...prev, round: roundData, challenge: challengeData, isLoading: false }))
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Error desconocido.',
+      }))
+    }
+  }, [gameId])
 
   useEffect(() => {
     async function initializeRound() {
@@ -53,28 +82,11 @@ export default function Game({ gameId }: GameProps) {
 
       setState((prev) => ({ ...prev, isLoading: true, error: null }))
 
-      try {
-        const roundData = await createRound(Number(gameId))
-        setState((prev) => ({ ...prev, round: roundData }))
-
-        const challengeData = await getRoundChallenge(Number(gameId), roundData.id)
-        setState((prev) => ({
-          ...prev,
-          challenge: challengeData,
-          isLoading: false,
-          roundResult: null,
-        }))
-      } catch (error) {
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          error: error instanceof Error ? error.message : 'Error desconocido.',
-        }))
-      }
+      await loadNextRound()
     }
 
     initializeRound()
-  }, [gameId])
+  }, [gameId, loadNextRound])
 
   if (!gameId) {
     return (
@@ -104,6 +116,7 @@ export default function Game({ gameId }: GameProps) {
         roundResult: result.isCorrect ? 'CORRECT' : 'INCORRECT',
         score: result.score,
         totalScore: result.totalScore,
+        gameStatus: result.status,
       }))
       // Clear answer field after submission
       setAnswer('')
@@ -146,6 +159,28 @@ export default function Game({ gameId }: GameProps) {
     )
   }
 
+  async function handleRoundExpired() {
+    if (state.roundResult || !state.round) {
+      return
+    }
+
+    try {
+      const completion = await expireRound(Number(gameId), state.round.id)
+      setState((prev) => ({
+        ...prev,
+        roundResult: 'EXPIRED',
+        score: 0,
+        totalScore: completion.totalScore,
+        gameStatus: completion.status,
+      }))
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        guessError: error instanceof Error ? error.message : 'No fue posible registrar la expiración.',
+      }))
+    }
+  }
+
   return (
     <main className="game">
       <PokemonChallenge
@@ -158,7 +193,7 @@ export default function Game({ gameId }: GameProps) {
         startedAt={state.round.startedAt}
         durationSeconds={state.challenge.timeLimitSeconds}
         isActive={state.roundResult === null}
-        onExpired={() => setState((prev) => ({ ...prev, roundResult: 'EXPIRED' }))}
+        onExpired={() => { void handleRoundExpired() }}
       />
 
       {state.roundResult === null && (
@@ -189,6 +224,16 @@ export default function Game({ gameId }: GameProps) {
           </p>
           {state.roundResult !== 'EXPIRED' && state.score !== null && (
             <p>Puntuación: {state.score} (Total: {state.totalScore})</p>
+          )}
+          {state.roundResult === 'EXPIRED' && state.totalScore !== null && (
+            <p>Puntuación: 0 (Total: {state.totalScore})</p>
+          )}
+          {state.gameStatus === 'FINISHED' ? (
+            <p className="game-status__final">Partida terminada. Puntuación final: {state.totalScore}</p>
+          ) : (
+            <GameButton onClick={() => { void loadNextRound() }} disabled={state.isLoading}>
+              Continuar
+            </GameButton>
           )}
         </div>
       )}

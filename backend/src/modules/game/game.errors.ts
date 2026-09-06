@@ -19,10 +19,24 @@ export class GameNotInProgressError extends Error {
   }
 }
 
+export class RoundNotCompletedError extends Error {
+  constructor() {
+    super('La ronda actual debe completarse antes de continuar.')
+    this.name = 'RoundNotCompletedError'
+  }
+}
+
 export class RoundExpiredError extends Error {
   constructor() {
     super('El tiempo de la ronda ha expirado.')
     this.name = 'RoundExpiredError'
+  }
+}
+
+export class RoundNotExpiredError extends Error {
+  constructor() {
+    super('La ronda aun no ha expirado.')
+    this.name = 'RoundNotExpiredError'
   }
 }
 

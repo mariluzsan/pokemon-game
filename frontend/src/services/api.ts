@@ -29,6 +29,14 @@ export interface GuessResult {
   isCorrect: boolean
   score: number
   totalScore: number
+  status: 'IN_PROGRESS' | 'FINISHED'
+  finishedAt: string | null
+}
+
+export interface RoundCompletion {
+  totalScore: number
+  status: 'IN_PROGRESS' | 'FINISHED'
+  finishedAt: string | null
 }
 
 interface CreateGameResponse {
@@ -47,7 +55,29 @@ interface SubmitGuessResponse {
   guess: GuessResult
 }
 
+interface ExpireRoundResponse {
+  completion: RoundCompletion
+}
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
+
+async function ensureSuccessfulResponse(response: Response, fallbackMessage: string): Promise<void> {
+  if (response.ok) {
+    return
+  }
+
+  let code: string | null = null
+  try {
+    const data = await response.json() as { error?: { code?: unknown } }
+    if (typeof data.error?.code === 'string') {
+      code = data.error.code
+    }
+  } catch {
+    // Preserve the safe fallback when the server response is not JSON.
+  }
+
+  throw new Error(code ? `${fallbackMessage} (${code})` : fallbackMessage)
+}
 
 export async function createGame(playerName: string): Promise<Game> {
   const response = await fetch(`${API_BASE_URL}/games`, {
@@ -58,9 +88,7 @@ export async function createGame(playerName: string): Promise<Game> {
     body: JSON.stringify({ playerName }),
   })
 
-  if (!response.ok) {
-    throw new Error('No fue posible iniciar la partida.')
-  }
+  await ensureSuccessfulResponse(response, 'No fue posible iniciar la partida.')
 
   const data = await response.json() as CreateGameResponse
   return data.game
@@ -74,9 +102,7 @@ export async function createRound(gameId: number): Promise<Round> {
     },
   })
 
-  if (!response.ok) {
-    throw new Error('No fue posible crear la ronda.')
-  }
+  await ensureSuccessfulResponse(response, 'No fue posible crear la ronda.')
 
   const data = await response.json() as CreateRoundResponse
   return data.round
@@ -90,9 +116,7 @@ export async function getRoundChallenge(gameId: number, roundId: number): Promis
     },
   })
 
-  if (!response.ok) {
-    throw new Error('No fue posible obtener el desafio.')
-  }
+  await ensureSuccessfulResponse(response, 'No fue posible obtener el desafio.')
 
   const data = await response.json() as GetChallengeResponse
   return data.challenge
@@ -107,12 +131,24 @@ export async function submitGuess(gameId: number, roundId: number, answer: strin
     body: JSON.stringify({ answer }),
   })
 
-  if (!response.ok) {
-    throw new Error('No fue posible enviar la respuesta.')
-  }
+  await ensureSuccessfulResponse(response, 'No fue posible enviar la respuesta.')
 
   const data = await response.json() as SubmitGuessResponse
   return data.guess
+}
+
+export async function expireRound(gameId: number, roundId: number): Promise<RoundCompletion> {
+  const response = await fetch(`${API_BASE_URL}/games/${gameId}/rounds/${roundId}/expire`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })
+
+  await ensureSuccessfulResponse(response, 'No fue posible registrar la expiración de la ronda.')
+
+  const data = await response.json() as ExpireRoundResponse
+  return data.completion
 }
 
 

@@ -1,8 +1,8 @@
 import { PokemonApiError } from '../pokemon/pokemon.client.js'
-import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, ValidationError } from './game.errors.js'
+import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, RoundNotExpiredError, RoundNotCompletedError, ValidationError } from './game.errors.js'
 import { GameRepository } from './game.repository.js'
 import { RoundAlreadyResolvedError, RoundRepository } from './round.repository.js'
-import { MAX_ROUNDS, ROUND_TIME_LIMIT_SECONDS, type CreateRoundInput, type GuessResult, type Round, type RoundChallenge, type SubmitGuessInput } from './round.types.js'
+import { MAX_ROUNDS, ROUND_TIME_LIMIT_SECONDS, type CreateRoundInput, type GuessResult, type Round, type RoundChallenge, type RoundCompletion, type SubmitGuessInput } from './round.types.js'
 import { PokemonApiClient } from '../pokemon/pokemon.client.js'
 
 interface GameReader {
@@ -12,7 +12,8 @@ interface GameReader {
 interface RoundWriter {
   create(gameId: number, roundNumber: number, pokemonId: number, difficulty: Round['difficulty']): Promise<Round>
   findById(roundId: number): ReturnType<RoundRepository['findById']>
-  updateGuess(roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, score: number): Promise<number>
+  updateGuess(roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, score: number): Promise<RoundCompletion | number>
+  expireRound?(roundId: number, gameId: number, finishedAt: Date): Promise<RoundCompletion>
 }
 
 interface PokemonPicker {
@@ -172,9 +173,9 @@ export class RoundService {
     const timeTaken = Math.max(0, Math.floor(elapsedMilliseconds / 1000))
     const score = calculateScore(isCorrect, round.difficulty, elapsedMilliseconds, round.hintsUsed)
 
-    let totalScore: number
+    let completion: RoundCompletion | number
     try {
-      totalScore = await this.roundRepository.updateGuess(input.roundId, finishedAt, timeTaken, isCorrect, input.gameId, score)
+      completion = await this.roundRepository.updateGuess(input.roundId, finishedAt, timeTaken, isCorrect, input.gameId, score)
     } catch (error) {
       if (error instanceof RoundAlreadyResolvedError) {
         throw error
@@ -182,7 +183,61 @@ export class RoundService {
       throw error
     }
 
-    return { isCorrect, score, totalScore }
+    const roundCompletion = typeof completion === 'number'
+      ? { totalScore: completion, status: 'IN_PROGRESS' as const, finishedAt: null }
+      : completion
+
+    return {
+      isCorrect,
+      score,
+      totalScore: roundCompletion.totalScore,
+      status: roundCompletion.status,
+      finishedAt: roundCompletion.finishedAt,
+    }
+  }
+
+  async expireRound(gameId: number, roundId: number): Promise<RoundCompletion> {
+    if (!Number.isInteger(gameId) || gameId <= 0 || !Number.isInteger(roundId) || roundId <= 0) {
+      throw new ValidationError('El identificador de la partida o ronda no es valido.')
+    }
+
+    const game = await this.gameRepository.findById(gameId)
+    if (!game) {
+      throw new GameNotFoundError()
+    }
+
+    if (game.status !== 'IN_PROGRESS') {
+      return {
+        totalScore: game.totalScore,
+        status: game.status,
+        finishedAt: game.finishedAt,
+      }
+    }
+
+    const round = await this.roundRepository.findById(roundId)
+    if (!round || round.gameId !== gameId) {
+      throw new ValidationError('La ronda no existe o no pertenece a la partida.')
+    }
+
+    if (round.finishedAt) {
+      return {
+        totalScore: game.totalScore,
+        status: game.status,
+        finishedAt: game.finishedAt,
+      }
+    }
+
+    const finishedAt = this.now()
+    const elapsedMilliseconds = finishedAt.getTime() - new Date(round.startedAt).getTime()
+    if (elapsedMilliseconds < ROUND_TIME_LIMIT_SECONDS * 1000) {
+      throw new RoundNotExpiredError()
+    }
+
+    if (!this.roundRepository.expireRound) {
+      throw new Error('La persistencia de expiracion no esta disponible.')
+    }
+
+    return this.roundRepository.expireRound(roundId, gameId, finishedAt)
   }
 }
 

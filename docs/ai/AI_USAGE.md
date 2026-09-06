@@ -21,6 +21,16 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Finalizacion de partida US-08
+- Objetivo: implementar unicamente US-08, completando diez rondas y finalizando la partida desde backend.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar criterios exactos, reglas de diez rondas, persistencia existente, concurrencia, expiracion y flujo React; no implementar pistas, IA ni funcionalidades posteriores.
+- Resultado propuesto: reutilizar `games.current_round`, `games.status`, `games.finished_at` y `games.total_score`; bloquear la partida al crear/completar rondas; persistir expiraciones con score cero; agregar accion de continuar y estado final.
+- Decision: aceptado. No se crea migracion porque el esquema ya contiene los campos necesarios. La expiracion se registra mediante un endpoint idempotente y las rondas posteriores solo se crean bajo transaccion y secuencia validada.
+- Verificacion: pruebas backend deterministas, build backend/frontend, lint frontend ejecutado con solo los dos errores preexistentes documentados, `git diff --check` y prueba manual documentada en `MANUAL_TEST_PLAN_US08.md`.
+- Archivos afectados: `backend/src/modules/game/*`, `frontend/src/services/api.ts`, `frontend/src/pages/Game/Game.tsx`, `docs/API_SPECIFICATION.md`, `docs/ERROR_HANDLING.md`, `docs/architecture/BACKEND.md`, `MANUAL_TEST_PLAN_US08.md`.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
+
 ### 2026-09-06 - Resultado de ronda US-07
 - Objetivo: implementar unicamente US-07, mostrando el resultado de cada ronda dentro del flujo existente sin avanzar a US-08.
 - Herramienta/modelo: GitHub Copilot.

@@ -34,4 +34,12 @@ export interface GuessResult {
   isCorrect: boolean
   score: number
   totalScore: number
+  status: Game['status']
+  finishedAt: string | null
+}
+
+export interface RoundCompletion {
+  totalScore: number
+  status: Game['status']
+  finishedAt: string | null
 }

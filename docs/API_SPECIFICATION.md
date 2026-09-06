@@ -10,6 +10,7 @@ Base: `/api`
 | POST | `/api/games/:gameId/rounds` | Crear una ronda y seleccionar su Pokémon |
 | GET | `/api/games/:gameId/rounds/:roundId/challenge` | Obtener datos visuales del desafío de una ronda |
 | POST | `/api/games/:gameId/rounds/:roundId/guess` | Registrar intento |
+| POST | `/api/games/:gameId/rounds/:roundId/expire` | Registrar expiración de ronda |
 | POST | `/api/games/:gameId/rounds/:roundId/hints` | Solicitar pista |
 | POST | `/api/games/:gameId/finish` | Finalizar partida |
 | GET | `/api/ranking` | Consultar ranking |
@@ -93,6 +94,7 @@ Errores previstos:
 - `400 VALIDATION_ERROR` cuando `gameId` no es un entero positivo.
 - `404 GAME_NOT_FOUND` cuando la partida no existe.
 - `409 GAME_NOT_IN_PROGRESS` cuando la partida no esta disponible para crear una ronda.
+- `409 ROUND_NOT_COMPLETED` cuando la ronda actual sigue activa.
 - `503 POKEAPI_UNAVAILABLE` cuando PokéAPI falla o devuelve datos invalidos.
 - `500 DATABASE_ERROR` cuando no fue posible persistir la ronda.
 
@@ -148,19 +150,23 @@ Respuesta correcta o incorrecta `200 OK`:
   "guess": {
     "isCorrect": true,
     "score": 1516,
-    "totalScore": 1516
+    "totalScore": 1516,
+    "status": "IN_PROGRESS",
+    "finishedAt": null
   }
 }
 ```
 
 **`isCorrect` (indica si la respuesta es correcta) puede ser `false` cuando la respuesta no coincide; en ese caso
 `score` es exactamente `0`. `score` es la puntuación de la ronda y
-`totalScore` es el total acumulado de la partida después de la operación.**
+`totalScore` es el total acumulado de la partida después de la operación. `status`
+ y `finishedAt` reflejan el estado persistido de la partida.**
 La comparación normaliza mayúsculas/minúsculas, espacios, guiones, puntuación,
 tildes y los símbolos de género para aceptar el nombre de presentación del
 Pokémon sin aceptar alias, traducciones ni nombres parciales.
 El endpoint no revela el nombre correcto. La ronda queda resuelta después del
-primer envío aceptado y no avanza ni finaliza la partida por sí mismo.
+primer envío aceptado; el backend incrementa `current_round` y finaliza la
+partida al resolver la décima ronda.
 
 Errores previstos:
 
@@ -172,6 +178,31 @@ Errores previstos:
 - **`409 ROUND_ALREADY_RESOLVED` cuando la ronda ya tiene una respuesta aceptada; el segundo envío no modifica ningún dato.**
 - `503 POKEAPI_UNAVAILABLE` cuando no es posible obtener el nombre para evaluar.
 - **`500 DATABASE_ERROR` cuando no fue posible persistir la evaluación y la ronda y el total de la partida se mantienen sin cambios.**
+
+### POST `/api/games/:gameId/rounds/:roundId/expire`
+
+Registra una ronda que alcanzó el límite de tiempo. La operación es idempotente
+si la ronda ya fue resuelta en una solicitud concurrente. La expiración obtiene
+`score: 0`, incrementa `current_round` y, si era la décima ronda, finaliza la partida.
+
+Respuesta exitosa `200 OK`:
+
+```json
+{
+  "completion": {
+    "totalScore": 0,
+    "status": "IN_PROGRESS",
+    "finishedAt": null
+  }
+}
+```
+
+Errores previstos:
+
+- `400 VALIDATION_ERROR` cuando `gameId` o `roundId` no es un entero positivo, o la ronda no pertenece a la partida.
+- `404 GAME_NOT_FOUND` cuando la partida no existe.
+- `409 ROUND_NOT_EXPIRED` cuando todavía no se alcanza el límite de 30 segundos.
+- `500 DATABASE_ERROR` cuando no fue posible persistir la expiración.
 
 ## Error estándar
 ```json

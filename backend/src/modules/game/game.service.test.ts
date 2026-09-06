@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { PokemonApiError } from '../pokemon/pokemon.client.js'
-import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, ValidationError } from './game.errors.js'
+import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, RoundNotExpiredError, ValidationError } from './game.errors.js'
 import { normalizePlayerName } from './game.service.js'
 import { ROUND_TIME_LIMIT_SECONDS } from './round.types.js'
 import { RoundAlreadyResolvedError } from './round.repository.js'
@@ -151,6 +151,77 @@ async function testRoundExpiresAtConfiguredBoundary() {
   assert.equal(await atDeadline.isRoundExpired(11), true)
 }
 
+async function testExpiredRoundCanCompleteAndAdvance() {
+  let persistedRoundId = 0
+  let persistedGameId = 0
+  const roundService = new RoundService(
+    { findById: async () => createGame() },
+    {
+      create: async () => { throw new Error('No debe crear otra ronda') },
+      findById: async () => ({
+        id: 11,
+        gameId: 7,
+        roundNumber: 1,
+        difficulty: 'EASY' as const,
+        startedAt: '2026-09-05T12:00:00.000Z',
+        pokemonId: 25,
+        finishedAt: null,
+        isCorrect: null,
+        hintsUsed: 0,
+      }),
+      updateGuess: async () => 0,
+      expireRound: async (roundId, gameId, finishedAt) => {
+        persistedRoundId = roundId
+        persistedGameId = gameId
+        assert.equal(finishedAt.toISOString(), '2026-09-05T12:00:30.000Z')
+        return { totalScore: 0, status: 'IN_PROGRESS', finishedAt: null }
+      },
+    },
+    {
+      selectRandomPokemon: async () => 25,
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+      getPokemonName: async () => 'pikachu',
+    },
+    () => new Date('2026-09-05T12:00:30.000Z'),
+  )
+
+  const completion = await roundService.expireRound(7, 11)
+
+  assert.deepEqual(completion, { totalScore: 0, status: 'IN_PROGRESS', finishedAt: null })
+  assert.equal(persistedRoundId, 11)
+  assert.equal(persistedGameId, 7)
+}
+
+async function testCannotExpireActiveRound() {
+  const roundService = new RoundService(
+    { findById: async () => createGame() },
+    {
+      create: async () => { throw new Error('No debe crear otra ronda') },
+      findById: async () => ({
+        id: 11,
+        gameId: 7,
+        roundNumber: 1,
+        difficulty: 'EASY' as const,
+        startedAt: '2026-09-05T12:00:00.000Z',
+        pokemonId: 25,
+        finishedAt: null,
+        isCorrect: null,
+        hintsUsed: 0,
+      }),
+      updateGuess: async () => 0,
+      expireRound: async () => { throw new Error('No debe persistir') },
+    },
+    {
+      selectRandomPokemon: async () => 25,
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+      getPokemonName: async () => 'pikachu',
+    },
+    () => new Date('2026-09-05T12:00:29.999Z'),
+  )
+
+  await assert.rejects(() => roundService.expireRound(7, 11), RoundNotExpiredError)
+}
+
 async function testRejectsMissingGame() {
   const roundService = new RoundService(
     { findById: async () => null },
@@ -254,7 +325,7 @@ function createGuessService(options: {
   round?: ReturnType<typeof createGuessRound> | null
   pokemonName?: string
   now?: string
-  updateGuess?: (roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, score: number) => Promise<number>
+  updateGuess?: (roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, score: number) => Promise<number | { totalScore: number; status: 'IN_PROGRESS' | 'FINISHED'; finishedAt: string | null }>
 } = {}) {
   return new RoundService(
     { findById: async () => createGame() },
@@ -289,8 +360,25 @@ async function testSubmitsCorrectGuessAndPersistsOnlyEvaluation() {
   assert.deepEqual(persisted, { roundId: 11, timeTaken: 29, isCorrect: true, score: result.score })
 }
 
+async function testFinalRoundResultReportsFinishedGame() {
+  const roundService = createGuessService({
+    updateGuess: async () => ({
+      totalScore: 9000,
+      status: 'FINISHED',
+      finishedAt: '2026-09-05T12:00:05.000Z',
+    }),
+  })
+
+  const result = await roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'pikachu' })
+
+  assert.equal(result.status, 'FINISHED')
+  assert.equal(result.finishedAt, '2026-09-05T12:00:05.000Z')
+  assert.equal(result.totalScore, 9000)
+}
+
 async function testAcceptsFormattedPokemonNames() {
   const formattedNames = [
+    { answer: 'Koffing', pokemonName: 'koffing' },
     { answer: 'Baxcalibur', pokemonName: 'baxcalibur' },
     { answer: 'Mr. Mime', pokemonName: 'mr-mime' },
     { answer: "Farfetch'd", pokemonName: 'farfetchd' },
@@ -321,6 +409,8 @@ async function testReturnsCorrectRoundResultWithoutRevealingPokemon() {
     isCorrect: true,
     score: 1416,
     totalScore: 1916,
+    status: 'IN_PROGRESS',
+    finishedAt: null,
   })
   assert.equal('pokemonId' in result, false)
   assert.equal('pokemonName' in result, false)
@@ -524,11 +614,14 @@ async function runTests() {
   await testCreatesRoundWithoutExposingPokemon()
   await testChallengeIncludesConfiguredTimeLimit()
   await testRoundExpiresAtConfiguredBoundary()
+  await testExpiredRoundCanCompleteAndAdvance()
+  await testCannotExpireActiveRound()
   await testRejectsMissingGame()
   await testRejectsFinishedGame()
   await testRejectsRoundAfterTenRounds()
   await testRejectsChallengeFromAnotherGame()
   await testSubmitsCorrectGuessAndPersistsOnlyEvaluation()
+  await testFinalRoundResultReportsFinishedGame()
   await testAcceptsFormattedPokemonNames()
   await testReturnsCorrectRoundResultWithoutRevealingPokemon()
   await testSubmitsIncorrectGuessWithoutRevealingName()

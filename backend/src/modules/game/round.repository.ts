@@ -2,7 +2,8 @@ import type { QueryResultRow } from 'pg'
 import { pool } from '../../infrastructure/database/database.js'
 import type { Game } from './game.types.js'
 import { MAX_ROUNDS } from './round.types.js'
-import type { Round } from './round.types.js'
+import type { Round, RoundCompletion } from './round.types.js'
+import { RoundNotCompletedError } from './game.errors.js'
 
 interface RoundRow extends QueryResultRow {
   id: number
@@ -35,14 +36,51 @@ export class RoundAlreadyResolvedError extends Error {
 
 export class RoundRepository {
   async create(gameId: number, roundNumber: number, pokemonId: number, difficulty: Game['difficulty']): Promise<Round> {
-    const result = await pool.query<RoundRow>(
-      `INSERT INTO rounds (game_id, round_number, pokemon_id, difficulty)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, game_id, round_number, difficulty, started_at, hints_used`,
-      [gameId, roundNumber, pokemonId, difficulty],
-    )
+    const client = await pool.connect()
 
-    return mapRoundRow(result.rows[0])
+    try {
+      await client.query('BEGIN')
+
+      const activeRoundResult = await client.query(
+        `SELECT 1
+         FROM rounds
+         WHERE game_id = $1 AND round_number = $2 AND finished_at IS NULL
+         FOR UPDATE`,
+        [gameId, roundNumber],
+      )
+
+      if (activeRoundResult.rowCount) {
+        throw new RoundNotCompletedError()
+      }
+
+      const gameResult = await client.query(
+        `SELECT current_round, status
+         FROM games
+         WHERE id = $1
+         FOR UPDATE`,
+        [gameId],
+      )
+
+      const game = gameResult.rows[0]
+      if (!game || game.status !== 'IN_PROGRESS' || game.current_round !== roundNumber) {
+        throw new RoundNotCompletedError()
+      }
+
+      const result = await client.query<RoundRow>(
+        `INSERT INTO rounds (game_id, round_number, pokemon_id, difficulty)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id, game_id, round_number, difficulty, started_at, hints_used`,
+        [gameId, roundNumber, pokemonId, difficulty],
+      )
+
+      await client.query('COMMIT')
+      return mapRoundRow(result.rows[0])
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
   }
 
   async findById(roundId: number): Promise<(Round & { pokemonId: number; finishedAt: Date | null; isCorrect: boolean | null }) | null> {
@@ -66,7 +104,7 @@ export class RoundRepository {
     }
   }
 
-  async updateGuess(roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, score: number): Promise<number> {
+  async updateGuess(roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, score: number): Promise<RoundCompletion> {
     const client = await pool.connect()
 
     try {
@@ -105,7 +143,7 @@ export class RoundRepository {
              status = CASE WHEN current_round >= $3 THEN 'FINISHED' ELSE status END,
              finished_at = CASE WHEN current_round >= $3 THEN $4 ELSE finished_at END
          WHERE id = $1
-         RETURNING total_score`,
+         RETURNING total_score, status, finished_at`,
         [gameId, score, MAX_ROUNDS, finishedAt],
       )
 
@@ -113,7 +151,74 @@ export class RoundRepository {
 
       await client.query('COMMIT')
 
-      return newTotalScore
+      return {
+        totalScore: newTotalScore,
+        status: updateGameResult.rows[0].status,
+        finishedAt: updateGameResult.rows[0].finished_at?.toISOString() ?? null,
+      }
+    } catch (error) {
+      await client.query('ROLLBACK')
+      throw error
+    } finally {
+      client.release()
+    }
+  }
+
+  async expireRound(roundId: number, gameId: number, finishedAt: Date): Promise<RoundCompletion> {
+    const client = await pool.connect()
+
+    try {
+      await client.query('BEGIN')
+
+      const roundResult = await client.query(
+        `SELECT finished_at
+         FROM rounds
+         WHERE id = $1 AND game_id = $2
+         FOR UPDATE`,
+        [roundId, gameId],
+      )
+
+      const round = roundResult.rows[0]
+      if (!round) {
+        throw new Error('La ronda no existe.')
+      }
+
+      if (round.finished_at !== null) {
+        const gameResult = await client.query(
+          `SELECT total_score, status, finished_at FROM games WHERE id = $1`,
+          [gameId],
+        )
+        await client.query('COMMIT')
+        return {
+          totalScore: gameResult.rows[0].total_score,
+          status: gameResult.rows[0].status,
+          finishedAt: gameResult.rows[0].finished_at?.toISOString() ?? null,
+        }
+      }
+
+      await client.query(
+        `UPDATE rounds
+         SET finished_at = $3, time_taken = $4, is_correct = FALSE, score = 0
+         WHERE id = $1 AND game_id = $2`,
+        [roundId, gameId, finishedAt, 30],
+      )
+
+      const gameResult = await client.query(
+        `UPDATE games
+         SET current_round = current_round + 1,
+             status = CASE WHEN current_round >= $2 THEN 'FINISHED' ELSE status END,
+             finished_at = CASE WHEN current_round >= $2 THEN $3 ELSE finished_at END
+         WHERE id = $1
+         RETURNING total_score, status, finished_at`,
+        [gameId, MAX_ROUNDS, finishedAt],
+      )
+
+      await client.query('COMMIT')
+      return {
+        totalScore: gameResult.rows[0].total_score,
+        status: gameResult.rows[0].status,
+        finishedAt: gameResult.rows[0].finished_at?.toISOString() ?? null,
+      }
     } catch (error) {
       await client.query('ROLLBACK')
       throw error

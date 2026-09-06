@@ -43,6 +43,7 @@ HintService -> AIProvider -> LLMProvider / FallbackProvider
 - `POST /api/games`
 - `GET /api/games/:gameId`
 - `POST /api/games/:gameId/rounds/:roundId/guess`
+- `POST /api/games/:gameId/rounds/:roundId/expire`
 - `POST /api/games/:gameId/rounds/:roundId/hints`
 - `POST /api/games/:gameId/finish`
 - `GET /api/ranking`
@@ -52,4 +53,4 @@ HintService -> AIProvider -> LLMProvider / FallbackProvider
 {"error":{"code":"GAME_NOT_FOUND","message":"La partida no existe."}}
 ```
 
-Códigos previstos: `GAME_NOT_FOUND`, `ROUND_NOT_FOUND`, `INVALID_GUESS`, `HINT_LIMIT_REACHED`, `AI_UNAVAILABLE`, `POKEAPI_UNAVAILABLE`, `DATABASE_ERROR`, `VALIDATION_ERROR`.
+Códigos previstos: `GAME_NOT_FOUND`, `ROUND_NOT_FOUND`, `INVALID_GUESS`, `ROUND_NOT_EXPIRED`, `ROUND_NOT_COMPLETED`, `HINT_LIMIT_REACHED`, `AI_UNAVAILABLE`, `POKEAPI_UNAVAILABLE`, `DATABASE_ERROR`, `VALIDATION_ERROR`.
