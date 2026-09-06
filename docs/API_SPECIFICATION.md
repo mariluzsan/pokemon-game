@@ -127,7 +127,7 @@ Errores previstos:
 - `503 POKEAPI_UNAVAILABLE` cuando PokéAPI falla o devuelve datos invalidos.
 - `500 DATABASE_ERROR` cuando no fue posible obtener los datos de la ronda.
 
-### POST `/api/games/:gameId/rounds/:roundId/guess`
+### POST `/api/games/:gameId/rounds/:roundId/guess` — cambios US-06
 
 Registra y evalúa una respuesta para una ronda vigente. La comparación se
 realiza en backend usando el nombre obtenido desde PokéAPI; el Pokémon correcto
@@ -146,13 +146,18 @@ Respuesta correcta o incorrecta `200 OK`:
 ```json
 {
   "guess": {
-    "isCorrect": true
+    "isCorrect": true,
+    "score": 1516,
+    "totalScore": 1516
   }
 }
 ```
 
-`isCorrect` puede ser `false` cuando la respuesta no coincide. US-05 no calcula
-score, no revela el nombre correcto y no avanza ni finaliza la partida.
+**`isCorrect` (indica si la respuesta es correcta) puede ser `false` cuando la respuesta no coincide; en ese caso
+`score` es exactamente `0`. `score` es la puntuación de la ronda y
+`totalScore` es el total acumulado de la partida después de la operación.**
+El endpoint no revela el nombre correcto. La ronda queda resuelta después del
+primer envío aceptado y no avanza ni finaliza la partida por sí mismo.
 
 Errores previstos:
 
@@ -161,8 +166,9 @@ Errores previstos:
 - `400 VALIDATION_ERROR` cuando la ronda no existe o no pertenece a la partida.
 - `409 GAME_NOT_IN_PROGRESS` cuando la partida no esta en estado `IN_PROGRESS`.
 - `409 ROUND_EXPIRED` cuando la respuesta llega al cumplir o superar los 30 segundos.
+- **`409 ROUND_ALREADY_RESOLVED` cuando la ronda ya tiene una respuesta aceptada; el segundo envío no modifica ningún dato.**
 - `503 POKEAPI_UNAVAILABLE` cuando no es posible obtener el nombre para evaluar.
-- `500 DATABASE_ERROR` cuando no fue posible persistir la evaluacion.
+- **`500 DATABASE_ERROR` cuando no fue posible persistir la evaluación y la ronda y el total de la partida se mantienen sin cambios.**
 
 ## Error estándar
 ```json

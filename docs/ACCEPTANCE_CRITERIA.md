@@ -11,18 +11,28 @@
 - La expiración de una ronda no detiene ni corrompe la partida y permite continuar con el flujo definido para la siguiente ronda.
 
 ## US-06 — Obtener puntuación según el desempeño
+> **Cambios cerrados:** valores numéricos, fórmula temporal, redondeo, penalización, respuesta incorrecta, límite, contrato de `/guess`, segundo envío y atomicidad.
 - El backend calcula la puntuación de cada ronda a partir del resultado de la respuesta, el tiempo empleado, la dificultad y las pistas utilizadas.
 - El cálculo utiliza las mismas reglas para entradas equivalentes y produce resultados deterministas.
 - Una respuesta incorrecta no recibe el beneficio de una respuesta correcta.
 - El uso de pistas reduce la puntuación según la penalización configurada y utilizar más pistas no aumenta la puntuación.
 - La puntuación de una ronda y la puntuación acumulada de la partida nunca son negativas.
 - La puntuación calculada queda asociada al resultado de la ronda y se refleja en el total de la partida cuando corresponda.
+- **La puntuación base es `1000` puntos.**
+- **La bonificación por dificultad es `0` para `EASY` (fácil), `200` para `MEDIUM` (media) y `400` para `HARD` (difícil).**
+- **El bono temporal es `floor(500 * remainingMs / 30_000)`, donde `remainingMs = max(0, 30_000 - elapsedMs)` y `elapsedMs` se calcula con el reloj del backend.**
+- **Cada pista resta `100` puntos, hasta un máximo de tres pistas.**
+- **Una respuesta incorrecta obtiene exactamente `0` puntos.**
+- **Una respuesta recibida con `elapsedMs >= 30_000` se rechaza; por tanto, una respuesta correcta en el límite no obtiene puntos.**
+- **El cálculo usa `floor` solo para el bono temporal y produce una puntuación entera.**
+- **La actualización de `rounds.score` y `games.total_score` es atómica; si falla, no se persiste ninguno de los dos cambios.**
 
 ## US-07 — Conocer el resultado de cada ronda
 - Al resolver una ronda, el sistema informa si la respuesta fue correcta, incorrecta o si la ronda expiró.
 - El resultado incluye la puntuación obtenida en la ronda cuando corresponda.
 - El resultado respeta las pistas utilizadas, la penalización aplicada y la dificultad de la ronda.
 - Una ronda resuelta no puede volver a modificar su resultado mediante una respuesta posterior.
+- **Un segundo envío para una ronda ya resuelta se rechaza con `409 ROUND_ALREADY_RESOLVED` y no modifica puntuación, resultado ni total de partida.**
 - El resultado de la ronda permite continuar con la siguiente ronda o finalizar la partida según el flujo definido.
 
 ## US-08 — Finalizar la partida al completar las rondas
