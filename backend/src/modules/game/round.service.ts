@@ -2,7 +2,7 @@ import { PokemonApiError } from '../pokemon/pokemon.client.js'
 import { GameNotFoundError, GameNotInProgressError, ValidationError } from './game.errors.js'
 import { GameRepository } from './game.repository.js'
 import { RoundRepository } from './round.repository.js'
-import type { CreateRoundInput, Round, RoundChallenge } from './round.types.js'
+import { ROUND_TIME_LIMIT_SECONDS, type CreateRoundInput, type Round, type RoundChallenge } from './round.types.js'
 import { PokemonApiClient } from '../pokemon/pokemon.client.js'
 
 interface GameReader {
@@ -24,6 +24,7 @@ export class RoundService {
     private readonly gameRepository: GameReader = new GameRepository(),
     private readonly roundRepository: RoundWriter = new RoundRepository(),
     private readonly pokemonPicker: PokemonPicker = new PokemonApiClient(),
+    private readonly now: () => Date = () => new Date(),
   ) {}
 
   async createRound(input: CreateRoundInput): Promise<Round> {
@@ -77,6 +78,18 @@ export class RoundService {
       roundNumber: round.roundNumber,
       imageUrl,
       difficulty: round.difficulty,
+      timeLimitSeconds: ROUND_TIME_LIMIT_SECONDS,
     }
+  }
+
+  async isRoundExpired(roundId: number): Promise<boolean> {
+    const round = await this.roundRepository.findById(roundId)
+
+    if (!round) {
+      throw new ValidationError('La ronda no existe.')
+    }
+
+    const elapsedMilliseconds = this.now().getTime() - new Date(round.startedAt).getTime()
+    return elapsedMilliseconds >= ROUND_TIME_LIMIT_SECONDS * 1000
   }
 }

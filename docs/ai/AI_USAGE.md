@@ -93,3 +93,14 @@ La generación de pistas se trata como una integración no confiable: timeout, e
   - Docs: `docs/API_SPECIFICATION.md`.
 - Commit relacionado: pendiente. (No se hace commit per requerimiento del usuario).
 - Notas: US-03 implementada sin avanzar a US-04 (timer), US-05 (guess), US-06 (scoring), US-07 (result), US-08 (finish), US-09+ (hints/IA/ranking/difficulty). Arquitectura mantiene pokemon_id secreto en backend, frontend solo recibe imageUrl.
+
+### 2026-09-05 - Temporizador de ronda US-04
+- Objetivo: implementar unicamente US-04 con una duracion de 30 segundos, manteniendo fuera de alcance el endpoint y la evaluacion de respuestas de US-05.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: continuar sobre US-01, US-02 y US-03; usar los criterios de aceptacion actualizados; integrar un temporizador visual y una interfaz backend minima de expiracion sin implementar US-05 a US-08.
+- Resultado propuesto: incluir `timeLimitSeconds` en el desafio, calcular el contador desde `startedAt`, y exponer una comprobacion de expiracion inyectable en `RoundService`.
+- Decision: aceptado. Se fija la duracion en 30 segundos, se mantiene el backend como autoridad temporal y no se crea endpoint de respuestas, comparacion, puntuacion ni resultado.
+- Decision descartada: implementar el flujo de respuestas requerido por algunos criterios de expiracion, porque pertenece a US-05 y fue excluido explicitamente.
+- Verificacion: pruebas deterministas del limite temporal en backend, compilacion del frontend, revision de errores del editor, suite backend y prueba manual del contador en navegador. El lint completo queda bloqueado por dos errores preexistentes en `App.tsx` y `Home.tsx`.
+- Archivos afectados: `backend/src/modules/game/round.types.ts`, `backend/src/modules/game/round.service.ts`, `backend/src/modules/game/game.service.test.ts`, `frontend/src/services/api.ts`, `frontend/src/pages/Game/Game.tsx`, `frontend/src/components/Timer/Timer.tsx`, `frontend/src/components/Timer/Timer.css`, `docs/API_SPECIFICATION.md`.
+- Commit relacionado: pendiente.

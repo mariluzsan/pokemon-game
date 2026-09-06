@@ -22,6 +22,7 @@ export interface RoundChallenge {
   roundNumber: number
   imageUrl: string
   difficulty: 'EASY' | 'MEDIUM' | 'HARD'
+  timeLimitSeconds: number
 }
 
 interface CreateGameResponse {

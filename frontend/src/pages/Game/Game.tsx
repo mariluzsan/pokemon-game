@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import PokemonChallenge from '../../components/PokemonChallenge/PokemonChallenge'
 import GameButton from '../../components/GameButton/GameButton'
-import { createRound, getRoundChallenge, type RoundChallenge } from '../../services/api'
+import Timer from '../../components/Timer/Timer'
+import { createRound, getRoundChallenge, type Round, type RoundChallenge } from '../../services/api'
 import './Game.css'
 
 interface GameProps {
@@ -9,7 +10,7 @@ interface GameProps {
 }
 
 interface GamePageState {
-  round: { id: number; roundNumber: number } | null
+  round: Round | null
   challenge: RoundChallenge | null
   isLoading: boolean
   error: string | null
@@ -108,6 +109,11 @@ export default function Game({ gameId }: GameProps) {
         imageUrl={state.challenge.imageUrl}
         roundNumber={state.challenge.roundNumber}
         difficulty={state.challenge.difficulty}
+      />
+
+      <Timer
+        startedAt={state.round.startedAt}
+        durationSeconds={state.challenge.timeLimitSeconds}
       />
 
       <div className="game-actions">

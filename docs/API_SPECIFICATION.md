@@ -110,10 +110,16 @@ Respuesta exitosa `200 OK`:
     "id": 1,
     "roundNumber": 1,
     "imageUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png",
-    "difficulty": "EASY"
+    "difficulty": "EASY",
+    "timeLimitSeconds": 30
   }
 }
 ```
+
+`timeLimitSeconds` indica la duración configurada de la ronda. El contador
+visual del frontend usa `startedAt` como inicio; la autoridad para determinar
+si una ronda expiró permanece en backend. Este incremento no agrega el
+endpoint de respuestas ni modifica la evaluación de intentos.
 
 Errores previstos:
 

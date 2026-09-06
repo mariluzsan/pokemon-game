@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { GameNotFoundError, GameNotInProgressError } from './game.errors.js'
 import { normalizePlayerName } from './game.service.js'
+import { ROUND_TIME_LIMIT_SECONDS } from './round.types.js'
 import { RoundService } from './round.service.js'
 
 function testNormalizesPlayerName() {
@@ -71,6 +72,67 @@ async function testCreatesRoundWithoutExposingPokemon() {
   assert.equal('pokemonId' in round, false)
 }
 
+async function testChallengeIncludesConfiguredTimeLimit() {
+  const roundService = new RoundService(
+    { findById: async () => createGame() },
+    {
+      create: async () => { throw new Error('No debe crear otra ronda') },
+      findById: async () => ({
+        id: 11,
+        gameId: 7,
+        roundNumber: 1,
+        difficulty: 'EASY',
+        startedAt: '2026-09-05T12:00:00.000Z',
+        pokemonId: 25,
+      }),
+    },
+    {
+      selectRandomPokemon: async () => 25,
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+    },
+  )
+
+  const challenge = await roundService.getRoundChallenge(7, 11)
+
+  assert.equal(challenge.timeLimitSeconds, ROUND_TIME_LIMIT_SECONDS)
+  assert.equal(challenge.timeLimitSeconds, 30)
+}
+
+async function testRoundExpiresAtConfiguredBoundary() {
+  const round = {
+    id: 11,
+    gameId: 7,
+    roundNumber: 1,
+    difficulty: 'EASY' as const,
+    startedAt: '2026-09-05T12:00:00.000Z',
+    pokemonId: 25,
+  }
+  const repository = {
+    create: async () => { throw new Error('No debe crear otra ronda') },
+    findById: async () => round,
+  }
+  const pokemonPicker = {
+    selectRandomPokemon: async () => 25,
+    getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+  }
+
+  const beforeDeadline = new RoundService(
+    { findById: async () => createGame() },
+    repository,
+    pokemonPicker,
+    () => new Date('2026-09-05T12:00:29.999Z'),
+  )
+  const atDeadline = new RoundService(
+    { findById: async () => createGame() },
+    repository,
+    pokemonPicker,
+    () => new Date('2026-09-05T12:00:30.000Z'),
+  )
+
+  assert.equal(await beforeDeadline.isRoundExpired(11), false)
+  assert.equal(await atDeadline.isRoundExpired(11), true)
+}
+
 async function testRejectsMissingGame() {
   const roundService = new RoundService(
     { findById: async () => null },
@@ -134,6 +196,8 @@ async function runTests() {
   testRejectsMissingPlayerName()
   testRejectsLongPlayerName()
   await testCreatesRoundWithoutExposingPokemon()
+  await testChallengeIncludesConfiguredTimeLimit()
+  await testRoundExpiresAtConfiguredBoundary()
   await testRejectsMissingGame()
   await testRejectsFinishedGame()
   await testRejectsChallengeFromAnotherGame()
