@@ -262,6 +262,44 @@ Errores previstos:
 - `503 POKEAPI_UNAVAILABLE` cuando no fue posible obtener los datos mínimos del Pokémon.
 - `500 DATABASE_ERROR` cuando no fue posible registrar la solicitud.
 
+### GET `/api/ranking`
+
+Consulta la colección actual de resultados válidos persistidos para ranking.
+La fuente de verdad es la tabla `games`; solo participan partidas finalizadas
+que conservan su marca de finalización.
+
+Respuesta exitosa `200 OK`:
+
+```json
+{
+  "ranking": [
+    {
+      "playerName": "Ash",
+      "score": 1200
+    },
+    {
+      "playerName": "Brock",
+      "score": 0
+    }
+  ]
+}
+```
+
+La respuesta devuelve únicamente `playerName` y `score`. No expone
+`pokemon_id`, respuestas, pistas, contenido de IA, dificultad, timestamps ni
+otros campos internos. Si no existen resultados válidos, responde `200 OK` con
+`{"ranking": []}`. La colección se obtiene desde backend y usa `games.total_score`
+como puntuación final persistida; no recalcula scoring durante la consulta.
+
+Orden observable actual:
+
+- La consulta devuelve primero los `score` más altos.
+- Las reglas completas de ordenamiento y desempate quedan reservadas para US-21.
+
+Errores previstos:
+
+- `500 DATABASE_ERROR` cuando no fue posible consultar el ranking.
+
 ## Error estándar
 ```json
 {

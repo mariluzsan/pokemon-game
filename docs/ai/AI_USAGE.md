@@ -98,6 +98,18 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Consulta de ranking US-20
+
+- Objetivo: implementar exclusivamente US-20 para consultar el ranking desde backend reutilizando los resultados finales persistidos por US-19, sin adelantar reglas de ordenamiento de US-21 ni la visualización de US-22.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar AGENTS, documentación funcional y técnica, API, errores, esquema PostgreSQL, migraciones, implementación de US-19 y rutas actuales para determinar la fuente de verdad del ranking y el contrato mínimo del endpoint.
+- Resultado propuesto: crear un módulo backend `ranking` con repositorio, servicio y ruta `GET /api/ranking`, leyendo solo `games.player_name` y `games.total_score` de partidas con `status = 'FINISHED'` y `finished_at` no nulo. Respuesta mínima: colección `ranking` con `playerName` y `score`.
+- Decisión: aceptada. Se reutiliza `games` como única fuente de verdad; no se crea tabla nueva, migración nueva, paginación, posición, desempates ni UI.
+- Decisiones descartadas: tablas `leaderboard`/`scores`/`results`, recalcular puntuación al consultar, incluir `position`, exponer `finishedAt` o `difficulty`, filtrar `score > 0`, crear endpoint alternativo o adelantar frontend de ranking.
+- Verificación: suite backend completa con nuevas pruebas de repositorio, servicio y ruta; build frontend; lint frontend con dos errores preexistentes no relacionados; `git diff --check`; revisión de `git status`.
+- Archivos afectados: `backend/src/app.ts`, `backend/src/modules/ranking/*`, `backend/package.json`, `docs/API_SPECIFICATION.md` y este registro.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
+
 ### 2026-09-06 - Persistencia del resultado final US-19
 
 - Objetivo: implementar exclusivamente US-19 asegurando que el resultado final de una partida terminada quede persistido de forma consistente, recuperable y reutilizable por US-20 sin crear una tabla adicional de ranking.
