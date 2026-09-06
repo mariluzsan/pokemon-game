@@ -6,6 +6,7 @@ import { GameService } from './game.service.js'
 import { RoundService } from './round.service.js'
 import { HintLimitReachedError } from '../hints/hint.errors.js'
 import { HintService } from '../hints/hint.service.js'
+import { UnsafeHintError } from '../hints/hint-safety.validator.js'
 
 const gameService = new GameService()
 const roundService = new RoundService()
@@ -290,6 +291,10 @@ export async function requestHintController(req: Request, res: Response) {
     }
     if (error instanceof HintLimitReachedError) {
       res.status(409).json({ error: { code: 'HINT_LIMIT_REACHED', message: error.message } })
+      return
+    }
+    if (error instanceof UnsafeHintError) {
+      res.status(422).json({ error: { code: 'UNSAFE_HINT', message: 'No fue posible generar una pista segura.' } })
       return
     }
     if (error instanceof PokemonApiError) {

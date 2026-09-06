@@ -24,17 +24,9 @@ export class AIUnavailableError extends Error {
 const MAX_HINT_LENGTH = 240
 const MIN_HINT_LENGTH = 10
 
-function normalize(value: string): string {
-  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
-}
-
-export function isSafeHint(content: string, pokemonName: string): boolean {
-  const normalizedContent = normalize(content)
-  const normalizedName = normalize(pokemonName)
-
+function isValidHintContent(content: string): boolean {
   return content.trim().length >= MIN_HINT_LENGTH
     && content.trim().length <= MAX_HINT_LENGTH
-    && !normalizedContent.includes(normalizedName)
     && !/[{}[\]]/.test(content)
 }
 
@@ -123,7 +115,7 @@ export class SafeHintGenerator implements HintGenerator {
   async generate(input: HintGenerationInput): Promise<{ content: string; source: 'AI' | 'FALLBACK' }> {
     try {
       const generated = await this.ai.generate(input)
-      if (isSafeHint(generated.content, input.pokemonName)) {
+      if (isValidHintContent(generated.content)) {
         return generated
       }
     } catch (error) {

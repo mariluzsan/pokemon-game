@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { AnthropicHintGenerator, SafeHintGenerator, isSafeHint } from './hint.generator.js'
+import { AnthropicHintGenerator, SafeHintGenerator } from './hint.generator.js'
 
 function response(body: unknown, ok = true): Response {
   return { ok, json: async () => body } as Response
@@ -19,15 +19,14 @@ async function testAnthropicRequestAndResponse() {
   assert.match(capturedBodies[0].messages?.[0].content ?? '', /NO debes decir su nombre/)
 }
 
-async function testInvalidAIOutputUsesFallback() {
+async function testInvalidAIFormatUsesFallback() {
   const generator = new SafeHintGenerator(
-    { generate: async () => ({ content: 'Pikachu es amarillo.', source: 'AI' }) },
+    { generate: async () => ({ content: 'Corta.', source: 'AI' }) },
     { generate: async () => ({ content: 'Pista alternativa basada en sus rasgos.', source: 'FALLBACK' }) },
   )
 
   const result = await generator.generate({ pokemonName: 'pikachu', types: ['electric'], level: 1, difficulty: 'EASY' })
   assert.deepEqual(result, { content: 'Pista alternativa basada en sus rasgos.', source: 'FALLBACK' })
-  assert.equal(isSafeHint('Pikachu es amarillo.', 'pikachu'), false)
 }
 
 async function testMissingConfigurationUsesFallbackPath() {
@@ -42,7 +41,7 @@ async function testMissingConfigurationUsesFallbackPath() {
 
 async function runTests() {
   await testAnthropicRequestAndResponse()
-  await testInvalidAIOutputUsesFallback()
+  await testInvalidAIFormatUsesFallback()
   await testMissingConfigurationUsesFallbackPath()
   console.log('Hint generator tests passed')
 }

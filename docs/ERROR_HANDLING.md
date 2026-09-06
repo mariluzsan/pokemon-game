@@ -21,6 +21,7 @@ Formato:
 | `ROUND_NOT_COMPLETED` | La ronda actual debe resolverse antes de crear la siguiente |
 | **`ROUND_ALREADY_RESOLVED`** | **La ronda ya fue resuelta y no acepta otro intento** |
 | `HINT_LIMIT_REACHED` | Límite de pistas alcanzado |
+| `UNSAFE_HINT` | La pista generada no cumple la validación de seguridad |
 | `AI_UNAVAILABLE` | IA no disponible |
 | `POKEAPI_UNAVAILABLE` | PokéAPI no disponible |
 | `DATABASE_ERROR` | Error interno de persistencia |
@@ -32,3 +33,9 @@ En US-10, un timeout, error HTTP, credencial ausente, respuesta vacía o
 salida inválida del proveedor activa el `FallbackHintGenerator`; no se expone
 el detalle interno ni se interrumpe la partida. Los fallos al obtener datos
 mínimos desde PokéAPI se responden como `POKEAPI_UNAVAILABLE`.
+
+En US-13, si una pista generada contiene el nombre normalizado del Pokémon
+objetivo, se responde `422 UNSAFE_HINT` con un mensaje genérico. El contenido,
+el nombre objetivo, el prompt y los detalles del proveedor no se incluyen en
+la respuesta ni en logs. La transacción se revierte antes de persistir la pista
+o aplicar su penalización.

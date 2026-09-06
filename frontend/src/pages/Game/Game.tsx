@@ -253,7 +253,8 @@ export default function Game({ gameId }: GameProps) {
         <div className="game-rules__items">
           <p><strong>30 s</strong><span>para responder</span></p>
           <p><strong>1000</strong><span>puntos base</span></p>
-          <p><strong>+ bonus</strong><span>por dificultad y tiempo</span></p>
+          <p><strong>Bonos</strong><span>Fácil +0, Medio +200, Difícil +400</span></p>
+          <p><strong>+0 a +500</strong><span>según el tiempo que quede</span></p>
           <p><strong>-100</strong><span>por pista, hasta 3</span></p>
           <p><strong>0 puntos</strong><span>si fallas o expira</span></p>
         </div>

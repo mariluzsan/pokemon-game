@@ -31,7 +31,7 @@
 
 .game-rules__items {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.15rem;
 }
 
@@ -45,7 +45,7 @@
   border-left: 1px solid var(--line);
 }
 
-.game-rules__items p:first-child {
+.game-rules__items p:nth-child(3n + 1) {
   border-left: 0;
 }
 
@@ -72,6 +72,10 @@
 
   .game-rules__items p:nth-child(odd) {
     border-left: 0;
+  }
+
+  .game-rules__items p:nth-child(even) {
+    border-left: 1px solid var(--line);
   }
 
   .game-rules__items p:last-child {

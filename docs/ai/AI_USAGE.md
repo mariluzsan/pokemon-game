@@ -61,6 +61,19 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Validación de spoilers US-13
+
+- Objetivo: impedir desde backend que una pista entregue explícitamente el nombre del Pokémon objetivo.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar el flujo de generación, persistencia transaccional, límite y penalización; separar la validación de spoilers del proveedor de IA y rechazar una salida insegura sin adelantar un nuevo fallback.
+- Resultado propuesto: `HintService` recibe el texto generado y lo entrega a `HintSafetyValidator` antes de que `HintRepository` inserte la pista. La validación compara el nombre con el contenido tras eliminar tildes, convertir a minúsculas y aplicar `trim`.
+- Decisión: aceptada por el Tech Lead. Una coincidencia del nombre produce `422 UNSAFE_HINT`, sin contenido sensible en la respuesta. No se reintenta ni se transforma esa salida en una pista alternativa.
+- Persistencia: al lanzar el error dentro de `registerGeneratedHint`, la transacción revierte; no hay fila en `hints`, no cambia `rounds.hints_used`, ni se aplica `hints.penalty` o el descuento de `games.total_score`.
+- Defensa en profundidad: el prompt continúa prohibiendo revelar el nombre y la validación determinista posterior mantiene la garantía de la aplicación frente a una respuesta que ignore el prompt.
+- Verificación: pruebas unitarias de coincidencias exactas, mayúsculas, minúsculas, frases, tildes y no coincidencias; prueba adversarial de servicio con un generador falso que devuelve el nombre; suite backend sin IA real.
+- Archivos afectados: `backend/src/modules/hints/hint-safety.validator.ts`, `backend/src/modules/hints/hint.service.ts`, `backend/src/modules/hints/hint.generator.ts`, pruebas del módulo, controlador y contratos de error.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
+
 ### 2026-09-06 - Penalizacion por pistas US-12
 - Objetivo: aplicar exclusivamente la penalizacion configurada por cada pista al score final de la ronda.
 - Herramienta/modelo: GitHub Copilot.

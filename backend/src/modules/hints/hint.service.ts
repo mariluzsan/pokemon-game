@@ -3,6 +3,7 @@ import { GameRepository } from '../game/game.repository.js'
 import { RoundAlreadyResolvedError, RoundRepository } from '../game/round.repository.js'
 import { HintRepository } from './hint.repository.js'
 import { SafeHintGenerator, type GeneratedHint, type HintGenerator } from './hint.generator.js'
+import { HintSafetyValidator } from './hint-safety.validator.js'
 import { PokemonApiClient } from '../pokemon/pokemon.client.js'
 import { HintLimitReachedError } from './hint.errors.js'
 import { MAX_HINTS_PER_ROUND, type Hint, type RequestHintInput } from './hint.types.js'
@@ -36,6 +37,7 @@ export class HintService {
     private readonly now: () => Date = () => new Date(),
     private readonly pokemonReader: PokemonHintReader = new PokemonApiClient(),
     private readonly hintGenerator: HintGenerator = new SafeHintGenerator(),
+    private readonly hintSafetyValidator = new HintSafetyValidator(),
   ) {}
 
   async requestHint(input: RequestHintInput): Promise<Hint> {
@@ -75,12 +77,16 @@ export class HintService {
       id: input.roundId,
       gameId: input.gameId,
       createdAt: requestedAt,
-      generate: (level) => this.hintGenerator.generate({
-        pokemonName: pokemon.name,
-        types: pokemon.types,
-        level,
-        difficulty: round.difficulty,
-      }),
+      generate: async (level) => {
+        const generated = await this.hintGenerator.generate({
+          pokemonName: pokemon.name,
+          types: pokemon.types,
+          level,
+          difficulty: round.difficulty,
+        })
+        this.hintSafetyValidator.validate(generated.content, pokemon.name)
+        return generated
+      },
     })
   }
 }

@@ -241,6 +241,7 @@ Errores previstos:
 - `409 ROUND_ALREADY_RESOLVED` cuando la ronda ya fue resuelta.
 - `409 ROUND_EXPIRED` cuando la ronda alcanzó el límite de tiempo.
 - `409 HINT_LIMIT_REACHED` cuando ya se solicitaron tres pistas en la ronda.
+- `422 UNSAFE_HINT` cuando la salida generada contiene el nombre del Pokémon objetivo; no se persiste, no incrementa el uso ni aplica penalización.
 - `503 POKEAPI_UNAVAILABLE` cuando no fue posible obtener los datos mínimos del Pokémon.
 - `500 DATABASE_ERROR` cuando no fue posible registrar la solicitud.
 

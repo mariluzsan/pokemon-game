@@ -4,6 +4,7 @@ import { RoundAlreadyResolvedError } from '../game/round.repository.js'
 import { HintLimitReachedError } from './hint.errors.js'
 import { HintService } from './hint.service.js'
 import type { HintGenerator } from './hint.generator.js'
+import { UnsafeHintError } from './hint-safety.validator.js'
 import { HINT_PENALTY_PER_HINT } from './hint.types.js'
 
 function createGame(status: 'IN_PROGRESS' | 'FINISHED' = 'IN_PROGRESS') {
@@ -200,6 +201,31 @@ async function testFailedGenerationDoesNotConsumeHint() {
   assert.equal(hintsUsed, 0)
 }
 
+async function testUnsafeHintIsRejectedWithoutPersistenceOrConsumption() {
+  let persisted = false
+  let hintsUsed = 0
+  let caughtError: unknown
+
+  try {
+    await createService({
+      hintGenerator: { generate: async () => ({ content: 'El Pokemon es Pikachu.', source: 'AI' }) },
+      registerGeneratedHint: async (record) => {
+        const generated = await record.generate(1)
+        persisted = true
+        hintsUsed = 1
+        return { level: 1, content: generated.content, penalty: 100, totalScore: 0, hintsUsed, hintsRemaining: 2 }
+      },
+    }).requestHint({ gameId: 7, roundId: 11 })
+  } catch (error) {
+    caughtError = error
+  }
+
+  assert.ok(caughtError instanceof UnsafeHintError)
+  assert.equal(caughtError.message.includes('Pikachu'), false)
+  assert.equal(persisted, false)
+  assert.equal(hintsUsed, 0)
+}
+
 async function testConcurrentRequestsWithOneHintLeftGenerateOnlyOneHint() {
   let hintsUsed = 2
   let generatorCalls = 0
@@ -253,6 +279,7 @@ async function runTests() {
   await testAssignsTheNextLevelAndAuthoritativeCounters()
   await testRejectsAtLimitWithoutInvokingGenerator()
   await testFailedGenerationDoesNotConsumeHint()
+  await testUnsafeHintIsRejectedWithoutPersistenceOrConsumption()
   await testConcurrentRequestsWithOneHintLeftGenerateOnlyOneHint()
   console.log('Hint service tests passed')
 }
