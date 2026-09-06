@@ -195,6 +195,7 @@ export async function getRanking(signal?: AbortSignal): Promise<RankingEntry[]> 
     headers: {
       'Content-Type': 'application/json',
     },
+    cache: 'no-store',
     signal,
   })
 
