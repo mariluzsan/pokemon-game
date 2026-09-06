@@ -98,6 +98,19 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Orden correcto de puntuaciones US-21
+
+- Objetivo: implementar exclusivamente US-21 sobre la consulta de ranking de US-20 para devolver resultados en el orden funcional correcto, manteniendo backend como autoridad y sin adelantar la UI de US-22.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar documentación funcional y técnica, el módulo real de ranking y la consulta ya existente para determinar el criterio exacto de orden y validar si existía una regla de desempate documentada.
+- Resultado propuesto: conservar `games` como única fuente de verdad, mantener el filtro de partidas válidas de US-20 y reforzar el `ORDER BY` de la consulta del ranking.
+- Regla implementada: orden funcional por `games.total_score DESC`. Cuando varios resultados tienen el mismo score, todos siguen apareciendo en el ranking sin un desempate funcional adicional. Para evitar depender del orden natural de PostgreSQL, se añadió `id ASC` como criterio técnico final de estabilidad, sin exponerlo ni convertirlo en regla de negocio.
+- Decisión: aceptada. No se creó endpoint nuevo, no se recalculó scoring, no se agregó `position`, no se expuso `finishedAt` y no se movió lógica al frontend.
+- Decisiones descartadas: desempatar por `finished_at`, nombre de jugador, menor tiempo, menos pistas o cualquier otro criterio funcional no documentado; también se descartó ordenar en Node.js con `Array.sort()`.
+- Verificación: pruebas del repositorio de ranking actualizadas para exigir `ORDER BY total_score DESC, id ASC`, mantener score `0`, conservar la forma del response y cubrir empates sin `position`; además de build/test backend, build/lint frontend, `git diff --check` y `git status`.
+- Archivos afectados: `backend/src/modules/ranking/ranking.repository.ts`, `backend/src/modules/ranking/ranking.repository.test.ts`, `docs/API_SPECIFICATION.md` y este registro.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
+
 ### 2026-09-06 - Consulta de ranking US-20
 
 - Objetivo: implementar exclusivamente US-20 para consultar el ranking desde backend reutilizando los resultados finales persistidos por US-19, sin adelantar reglas de ordenamiento de US-21 ni la visualización de US-22.

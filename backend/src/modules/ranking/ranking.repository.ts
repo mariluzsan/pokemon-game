@@ -20,7 +20,7 @@ export class RankingRepository {
       `SELECT player_name, total_score
        FROM games
        WHERE status = 'FINISHED' AND finished_at IS NOT NULL
-       ORDER BY total_score DESC`,
+       ORDER BY total_score DESC, id ASC`,
       [],
     )
 

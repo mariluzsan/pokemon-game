@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import GameButton from '../../components/GameButton/GameButton'
 import GameTitle from '../../components/GameTitle/GameTitle'
 import { createGame, type Game } from '../../services/api'
@@ -9,6 +9,14 @@ function Home() {
   const [game, setGame] = useState<Game | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isStarting, setIsStarting] = useState(false)
+
+  useEffect(() => {
+    if (!game) {
+      return
+    }
+
+    window.location.assign(`/game/${game.id}`)
+  }, [game])
 
   async function handleStartGame(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -29,9 +37,7 @@ function Home() {
     }
   }
 
-  // If a game was created, redirect to game page
   if (game) {
-    window.location.href = `/game/${game.id}`
     return null
   }
 

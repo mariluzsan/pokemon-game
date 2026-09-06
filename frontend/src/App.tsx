@@ -9,29 +9,27 @@ interface PageState {
   gameId: string | null
 }
 
-function App() {
-  const [pageState, setPageState] = useState<PageState>({
+function getPageStateFromPath(path: string): PageState {
+  if (path.startsWith('/game/')) {
+    return {
+      currentPage: 'game',
+      gameId: path.split('/game/')[1],
+    }
+  }
+
+  return {
     currentPage: 'home',
     gameId: null,
-  })
+  }
+}
+
+function App() {
+  const [pageState, setPageState] = useState<PageState>(() => getPageStateFromPath(window.location.pathname))
 
   useEffect(() => {
     // Handle browser back/forward navigation
     const handlePopState = () => {
-      const path = window.location.pathname
-      if (path.startsWith('/game/')) {
-        const gameId = path.split('/game/')[1]
-        setPageState({ currentPage: 'game', gameId })
-      } else {
-        setPageState({ currentPage: 'home', gameId: null })
-      }
-    }
-
-    // Parse initial URL
-    const path = window.location.pathname
-    if (path.startsWith('/game/')) {
-      const gameId = path.split('/game/')[1]
-      setPageState({ currentPage: 'game', gameId })
+      setPageState(getPageStateFromPath(window.location.pathname))
     }
 
     window.addEventListener('popstate', handlePopState)
@@ -47,9 +45,8 @@ function App() {
         const path = link.href.replace(window.location.origin, '')
         if (path.startsWith('/game/')) {
           event.preventDefault()
-          const gameId = path.split('/game/')[1]
           window.history.pushState({}, '', path)
-          setPageState({ currentPage: 'game', gameId })
+          setPageState(getPageStateFromPath(path))
         }
       }
     }

@@ -291,10 +291,11 @@ otros campos internos. Si no existen resultados válidos, responde `200 OK` con
 `{"ranking": []}`. La colección se obtiene desde backend y usa `games.total_score`
 como puntuación final persistida; no recalcula scoring durante la consulta.
 
-Orden observable actual:
+Orden observable de US-21:
 
-- La consulta devuelve primero los `score` más altos.
-- Las reglas completas de ordenamiento y desempate quedan reservadas para US-21.
+- La consulta devuelve primero los `score` más altos (`games.total_score DESC`).
+- En caso de empate, todos los puntajes empatados se mantienen en el ranking; no existe una regla funcional de desempate adicional.
+- Para que dos consultas consecutivas sobre el mismo dataset devuelvan el mismo orden observable, el backend aplica un criterio técnico final `id ASC` solo como estabilizador interno. Ese criterio no cambia la regla funcional del ranking ni se expone en la respuesta.
 
 Errores previstos:
 
