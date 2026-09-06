@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { GameNotFoundError, GameNotInProgressError } from './game.errors.js'
+import { PokemonApiError } from '../pokemon/pokemon.client.js'
+import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, ValidationError } from './game.errors.js'
 import { normalizePlayerName } from './game.service.js'
 import { ROUND_TIME_LIMIT_SECONDS } from './round.types.js'
 import { RoundService } from './round.service.js'
@@ -53,10 +54,12 @@ async function testCreatesRoundWithoutExposingPokemon() {
         }
       },
       findById: async () => null,
+      updateGuess: async () => undefined,
     },
     { 
       selectRandomPokemon: async () => 25,
       getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+      getPokemonName: async () => 'pikachu',
     },
   )
 
@@ -85,10 +88,12 @@ async function testChallengeIncludesConfiguredTimeLimit() {
         startedAt: '2026-09-05T12:00:00.000Z',
         pokemonId: 25,
       }),
+      updateGuess: async () => undefined,
     },
     {
       selectRandomPokemon: async () => 25,
       getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+      getPokemonName: async () => 'pikachu',
     },
   )
 
@@ -110,10 +115,12 @@ async function testRoundExpiresAtConfiguredBoundary() {
   const repository = {
     create: async () => { throw new Error('No debe crear otra ronda') },
     findById: async () => round,
+    updateGuess: async () => undefined,
   }
   const pokemonPicker = {
     selectRandomPokemon: async () => 25,
     getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+    getPokemonName: async () => 'pikachu',
   }
 
   const beforeDeadline = new RoundService(
@@ -139,10 +146,12 @@ async function testRejectsMissingGame() {
     { 
       create: async () => { throw new Error('No debe persistir') }, 
       findById: async () => null,
+      updateGuess: async () => undefined,
     },
     { 
       selectRandomPokemon: async () => 25,
       getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+      getPokemonName: async () => 'pikachu',
     },
   )
 
@@ -155,10 +164,12 @@ async function testRejectsFinishedGame() {
     { 
       create: async () => { throw new Error('No debe persistir') }, 
       findById: async () => null,
+      updateGuess: async () => undefined,
     },
     { 
       selectRandomPokemon: async () => 25,
       getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+      getPokemonName: async () => 'pikachu',
     },
   )
 
@@ -178,16 +189,146 @@ async function testRejectsChallengeFromAnotherGame() {
         startedAt: '2026-09-05T12:01:00.000Z',
         pokemonId: 25,
       }),
+      updateGuess: async () => undefined,
     },
     {
       selectRandomPokemon: async () => 25,
       getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+      getPokemonName: async () => 'pikachu',
     },
   )
 
   await assert.rejects(
     () => roundService.getRoundChallenge(999, 11),
     /La ronda no pertenece a la partida\./,
+  )
+}
+
+function createGuessRound(overrides: Partial<{ gameId: number; startedAt: string; pokemonId: number }> = {}) {
+  return {
+    id: 11,
+    gameId: overrides.gameId ?? 7,
+    roundNumber: 1,
+    difficulty: 'EASY' as const,
+    startedAt: overrides.startedAt ?? '2026-09-05T12:00:00.000Z',
+    pokemonId: overrides.pokemonId ?? 25,
+  }
+}
+
+function createGuessService(options: {
+  round?: ReturnType<typeof createGuessRound> | null
+  pokemonName?: string
+  now?: string
+  updateGuess?: (roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean) => Promise<void>
+} = {}) {
+  return new RoundService(
+    { findById: async () => createGame() },
+    {
+      create: async () => { throw new Error('No debe crear otra ronda') },
+      findById: async () => options.round === undefined ? createGuessRound() : options.round,
+      updateGuess: options.updateGuess ?? (async () => undefined),
+    },
+    {
+      selectRandomPokemon: async () => 25,
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+      getPokemonName: async () => options.pokemonName ?? 'pikachu',
+    },
+    () => new Date(options.now ?? '2026-09-05T12:00:29.999Z'),
+  )
+}
+
+async function testSubmitsCorrectGuessAndPersistsOnlyEvaluation() {
+  let persisted: { roundId: number; timeTaken: number; isCorrect: boolean } | null = null
+  const roundService = createGuessService({
+    updateGuess: async (roundId, _finishedAt, timeTaken, isCorrect) => {
+      persisted = { roundId, timeTaken, isCorrect }
+    },
+  })
+
+  const result = await roundService.submitGuess({ gameId: 7, roundId: 11, answer: '  PiKaChU  ' })
+
+  assert.deepEqual(result, { isCorrect: true })
+  assert.deepEqual(persisted, { roundId: 11, timeTaken: 29, isCorrect: true })
+}
+
+async function testSubmitsIncorrectGuessWithoutRevealingName() {
+  const roundService = createGuessService()
+
+  const result = await roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'charmander' })
+
+  assert.deepEqual(result, { isCorrect: false })
+  assert.equal('pokemonId' in result, false)
+  assert.equal('pokemonName' in result, false)
+}
+
+async function testRejectsInvalidGuessInput() {
+  const roundService = createGuessService()
+
+  await assert.rejects(
+    () => roundService.submitGuess({ gameId: 7, roundId: 11, answer: '   ' }),
+    ValidationError,
+  )
+}
+
+async function testRejectsGuessAtDeadline() {
+  const roundService = createGuessService({ now: '2026-09-05T12:00:30.000Z' })
+
+  await assert.rejects(
+    () => roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'pikachu' }),
+    RoundExpiredError,
+  )
+}
+
+async function testRejectsGuessForMissingRound() {
+  const roundService = createGuessService({ round: null })
+
+  await assert.rejects(
+    () => roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'pikachu' }),
+    /La ronda no existe\./,
+  )
+}
+
+async function testRejectsGuessFromAnotherGame() {
+  const roundService = createGuessService({ round: createGuessRound({ gameId: 8 }) })
+
+  await assert.rejects(
+    () => roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'pikachu' }),
+    /La ronda no pertenece a la partida\./,
+  )
+}
+
+async function testRejectsInvalidGuessIdentifiers() {
+  const roundService = createGuessService()
+
+  await assert.rejects(
+    () => roundService.submitGuess({ gameId: 0, roundId: 11, answer: 'pikachu' }),
+    ValidationError,
+  )
+  await assert.rejects(
+    () => roundService.submitGuess({ gameId: 7, roundId: -1, answer: 'pikachu' }),
+    ValidationError,
+  )
+}
+
+async function testMapsPokemonApiFailureDuringGuess() {
+  const roundService = new RoundService(
+    { findById: async () => createGame() },
+    {
+      create: async () => { throw new Error('No debe crear otra ronda') },
+      findById: async () => createGuessRound(),
+      updateGuess: async () => { throw new Error('No debe persistir') },
+    },
+    {
+      selectRandomPokemon: async () => 25,
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+      getPokemonName: async () => { throw new PokemonApiError() },
+    },
+    () => new Date('2026-09-05T12:00:29.999Z'),
+  )
+
+  await assert.rejects(
+    () => roundService.submitGuess({ gameId: 7, roundId: 11, answer: 'pikachu' }),
+    PokemonApiError,
   )
 }
 
@@ -201,6 +342,14 @@ async function runTests() {
   await testRejectsMissingGame()
   await testRejectsFinishedGame()
   await testRejectsChallengeFromAnotherGame()
+  await testSubmitsCorrectGuessAndPersistsOnlyEvaluation()
+  await testSubmitsIncorrectGuessWithoutRevealingName()
+  await testRejectsInvalidGuessInput()
+  await testRejectsGuessAtDeadline()
+  await testRejectsGuessForMissingRound()
+  await testRejectsGuessFromAnotherGame()
+  await testRejectsInvalidGuessIdentifiers()
+  await testMapsPokemonApiFailureDuringGuess()
 
   console.log('Game service tests passed')
 }

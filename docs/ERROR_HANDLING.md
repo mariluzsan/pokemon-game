@@ -16,6 +16,7 @@ Formato:
 | `GAME_NOT_IN_PROGRESS` | La partida no permite crear una ronda |
 | `ROUND_NOT_FOUND` | Ronda inexistente |
 | `INVALID_GUESS` | Intento inválido |
+| `ROUND_EXPIRED` | La ronda ya superó el tiempo límite |
 | `HINT_LIMIT_REACHED` | Límite de pistas alcanzado |
 | `AI_UNAVAILABLE` | IA no disponible |
 | `POKEAPI_UNAVAILABLE` | PokéAPI no disponible |

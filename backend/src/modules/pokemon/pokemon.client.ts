@@ -107,4 +107,40 @@ export class PokemonApiClient implements PokemonSelector {
       clearTimeout(timeout)
     }
   }
+
+  async getPokemonName(pokemonId: number): Promise<string> {
+    if (!Number.isInteger(pokemonId) || pokemonId <= 0) {
+      throw new PokemonApiError()
+    }
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+    try {
+      const response = await this.fetcher(
+        `${this.baseUrl}/pokemon/${pokemonId}`,
+        { signal: controller.signal },
+      )
+
+      if (!response.ok) {
+        throw new PokemonApiError()
+      }
+
+      const data = await response.json() as PokemonApiResponse
+
+      if (typeof data.name !== 'string' || data.name.trim() === '') {
+        throw new PokemonApiError()
+      }
+
+      return data.name
+    } catch (error) {
+      if (error instanceof PokemonApiError) {
+        throw error
+      }
+
+      throw new PokemonApiError()
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
 }

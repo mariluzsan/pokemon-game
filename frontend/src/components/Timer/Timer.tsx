@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './Timer.css'
 
 interface TimerProps {
   startedAt: string
   durationSeconds: number
+  onExpired?: () => void
 }
 
 function getRemainingSeconds(startedAt: string, durationSeconds: number, now: number): number {
@@ -11,14 +12,27 @@ function getRemainingSeconds(startedAt: string, durationSeconds: number, now: nu
   return Math.max(0, Math.ceil((deadline - now) / 1000))
 }
 
-export default function Timer({ startedAt, durationSeconds }: TimerProps) {
+export default function Timer({ startedAt, durationSeconds, onExpired }: TimerProps) {
+  const onExpiredRef = useRef(onExpired)
+  const reportedExpirationRef = useRef(false)
   const [remainingSeconds, setRemainingSeconds] = useState(() => (
     getRemainingSeconds(startedAt, durationSeconds, Date.now())
   ))
 
   useEffect(() => {
+    onExpiredRef.current = onExpired
+  }, [onExpired])
+
+  useEffect(() => {
+    reportedExpirationRef.current = false
     const updateRemainingSeconds = () => {
-      setRemainingSeconds(getRemainingSeconds(startedAt, durationSeconds, Date.now()))
+      const remaining = getRemainingSeconds(startedAt, durationSeconds, Date.now())
+      setRemainingSeconds(remaining)
+
+      if (remaining === 0 && !reportedExpirationRef.current) {
+        reportedExpirationRef.current = true
+        onExpiredRef.current?.()
+      }
     }
 
     updateRemainingSeconds()

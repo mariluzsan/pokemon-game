@@ -118,14 +118,51 @@ Respuesta exitosa `200 OK`:
 
 `timeLimitSeconds` indica la duración configurada de la ronda. El contador
 visual del frontend usa `startedAt` como inicio; la autoridad para determinar
-si una ronda expiró permanece en backend. Este incremento no agrega el
-endpoint de respuestas ni modifica la evaluación de intentos.
+si una ronda expiró permanece en backend. La evaluación de respuestas se
+describe en el endpoint `POST .../guess` de US-05.
 
 Errores previstos:
 
 - `400 VALIDATION_ERROR` cuando `gameId` o `roundId` no es un entero positivo, la ronda no existe o no pertenece a la partida indicada.
 - `503 POKEAPI_UNAVAILABLE` cuando PokéAPI falla o devuelve datos invalidos.
 - `500 DATABASE_ERROR` cuando no fue posible obtener los datos de la ronda.
+
+### POST `/api/games/:gameId/rounds/:roundId/guess`
+
+Registra y evalúa una respuesta para una ronda vigente. La comparación se
+realiza en backend usando el nombre obtenido desde PokéAPI; el Pokémon correcto
+no se devuelve al cliente.
+
+Request:
+
+```json
+{
+  "answer": "pikachu"
+}
+```
+
+Respuesta correcta o incorrecta `200 OK`:
+
+```json
+{
+  "guess": {
+    "isCorrect": true
+  }
+}
+```
+
+`isCorrect` puede ser `false` cuando la respuesta no coincide. US-05 no calcula
+score, no revela el nombre correcto y no avanza ni finaliza la partida.
+
+Errores previstos:
+
+- `400 VALIDATION_ERROR` cuando `gameId`, `roundId` o `answer` son invalidos.
+- `404 GAME_NOT_FOUND` cuando la partida no existe.
+- `400 VALIDATION_ERROR` cuando la ronda no existe o no pertenece a la partida.
+- `409 GAME_NOT_IN_PROGRESS` cuando la partida no esta en estado `IN_PROGRESS`.
+- `409 ROUND_EXPIRED` cuando la respuesta llega al cumplir o superar los 30 segundos.
+- `503 POKEAPI_UNAVAILABLE` cuando no es posible obtener el nombre para evaluar.
+- `500 DATABASE_ERROR` cuando no fue posible persistir la evaluacion.
 
 ## Error estándar
 ```json

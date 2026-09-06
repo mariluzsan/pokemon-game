@@ -21,3 +21,13 @@ export interface RoundChallenge {
 export interface CreateRoundInput {
   gameId: number
 }
+
+export interface SubmitGuessInput {
+  gameId: number
+  roundId: number
+  answer: unknown
+}
+
+export interface GuessResult {
+  isCorrect: boolean
+}

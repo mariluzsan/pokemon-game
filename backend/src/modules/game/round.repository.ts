@@ -52,4 +52,13 @@ export class RoundRepository {
       pokemonId: row.pokemon_id || 0,
     }
   }
+
+  async updateGuess(roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean): Promise<void> {
+    await pool.query(
+      `UPDATE rounds
+       SET finished_at = $2, time_taken = $3, is_correct = $4
+       WHERE id = $1`,
+      [roundId, finishedAt, timeTaken, isCorrect],
+    )
+  }
 }

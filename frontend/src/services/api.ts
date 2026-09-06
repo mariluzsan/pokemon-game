@@ -25,6 +25,10 @@ export interface RoundChallenge {
   timeLimitSeconds: number
 }
 
+export interface GuessResult {
+  isCorrect: boolean
+}
+
 interface CreateGameResponse {
   game: Game
 }
@@ -35,6 +39,10 @@ interface CreateRoundResponse {
 
 interface GetChallengeResponse {
   challenge: RoundChallenge
+}
+
+interface SubmitGuessResponse {
+  guess: GuessResult
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
@@ -86,6 +94,23 @@ export async function getRoundChallenge(gameId: number, roundId: number): Promis
 
   const data = await response.json() as GetChallengeResponse
   return data.challenge
+}
+
+export async function submitGuess(gameId: number, roundId: number, answer: string): Promise<GuessResult> {
+  const response = await fetch(`${API_BASE_URL}/games/${gameId}/rounds/${roundId}/guess`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ answer }),
+  })
+
+  if (!response.ok) {
+    throw new Error('No fue posible enviar la respuesta.')
+  }
+
+  const data = await response.json() as SubmitGuessResponse
+  return data.guess
 }
 
 

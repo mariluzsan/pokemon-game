@@ -1,8 +1,8 @@
 import { PokemonApiError } from '../pokemon/pokemon.client.js'
-import { GameNotFoundError, GameNotInProgressError, ValidationError } from './game.errors.js'
+import { GameNotFoundError, GameNotInProgressError, RoundExpiredError, ValidationError } from './game.errors.js'
 import { GameRepository } from './game.repository.js'
 import { RoundRepository } from './round.repository.js'
-import { ROUND_TIME_LIMIT_SECONDS, type CreateRoundInput, type Round, type RoundChallenge } from './round.types.js'
+import { ROUND_TIME_LIMIT_SECONDS, type CreateRoundInput, type GuessResult, type Round, type RoundChallenge, type SubmitGuessInput } from './round.types.js'
 import { PokemonApiClient } from '../pokemon/pokemon.client.js'
 
 interface GameReader {
@@ -12,11 +12,13 @@ interface GameReader {
 interface RoundWriter {
   create(gameId: number, roundNumber: number, pokemonId: number, difficulty: Round['difficulty']): Promise<Round>
   findById(roundId: number): ReturnType<RoundRepository['findById']>
+  updateGuess(roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean): Promise<void>
 }
 
 interface PokemonPicker {
   selectRandomPokemon(): Promise<number>
   getPokemonImageUrl(pokemonId: number): ReturnType<PokemonApiClient['getPokemonImageUrl']>
+  getPokemonName(pokemonId: number): ReturnType<PokemonApiClient['getPokemonName']>
 }
 
 export class RoundService {
@@ -92,4 +94,57 @@ export class RoundService {
     const elapsedMilliseconds = this.now().getTime() - new Date(round.startedAt).getTime()
     return elapsedMilliseconds >= ROUND_TIME_LIMIT_SECONDS * 1000
   }
+
+  async submitGuess(input: SubmitGuessInput): Promise<GuessResult> {
+    if (!Number.isInteger(input.gameId) || input.gameId <= 0) {
+      throw new ValidationError('El identificador de la partida no es valido.')
+    }
+
+    if (!Number.isInteger(input.roundId) || input.roundId <= 0) {
+      throw new ValidationError('El identificador de la ronda no es valido.')
+    }
+
+    if (typeof input.answer !== 'string' || input.answer.trim() === '') {
+      throw new ValidationError('La respuesta es obligatoria.')
+    }
+
+    const game = await this.gameRepository.findById(input.gameId)
+
+    if (!game) {
+      throw new GameNotFoundError()
+    }
+
+    if (game.status !== 'IN_PROGRESS') {
+      throw new GameNotInProgressError()
+    }
+
+    const round = await this.roundRepository.findById(input.roundId)
+
+    if (!round) {
+      throw new ValidationError('La ronda no existe.')
+    }
+
+    if (round.gameId !== input.gameId) {
+      throw new ValidationError('La ronda no pertenece a la partida.')
+    }
+
+    const finishedAt = this.now()
+    const elapsedMilliseconds = finishedAt.getTime() - new Date(round.startedAt).getTime()
+
+    if (elapsedMilliseconds >= ROUND_TIME_LIMIT_SECONDS * 1000) {
+      throw new RoundExpiredError()
+    }
+
+    const pokemonName = await this.pokemonPicker.getPokemonName(round.pokemonId)
+    const isCorrect = normalizeGuess(input.answer) === normalizeGuess(pokemonName)
+    const timeTaken = Math.max(0, Math.floor(elapsedMilliseconds / 1000))
+
+    await this.roundRepository.updateGuess(input.roundId, finishedAt, timeTaken, isCorrect)
+
+    return { isCorrect }
+  }
+}
+
+function normalizeGuess(value: string): string {
+  return value.trim().toLowerCase()
 }

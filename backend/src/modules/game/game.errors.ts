@@ -19,3 +19,10 @@ export class GameNotInProgressError extends Error {
   }
 }
 
+export class RoundExpiredError extends Error {
+  constructor() {
+    super('El tiempo de la ronda ha expirado.')
+    this.name = 'RoundExpiredError'
+  }
+}
+

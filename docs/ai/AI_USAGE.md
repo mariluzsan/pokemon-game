@@ -104,3 +104,14 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 - Verificacion: pruebas deterministas del limite temporal en backend, compilacion del frontend, revision de errores del editor, suite backend y prueba manual del contador en navegador. El lint completo queda bloqueado por dos errores preexistentes en `App.tsx` y `Home.tsx`.
 - Archivos afectados: `backend/src/modules/game/round.types.ts`, `backend/src/modules/game/round.service.ts`, `backend/src/modules/game/game.service.test.ts`, `frontend/src/services/api.ts`, `frontend/src/pages/Game/Game.tsx`, `frontend/src/components/Timer/Timer.tsx`, `frontend/src/components/Timer/Timer.css`, `docs/API_SPECIFICATION.md`.
 - Commit relacionado: pendiente.
+
+### 2026-09-06 - Enviar respuesta US-05
+- Objetivo: implementar unicamente US-05 para enviar una respuesta, evaluarla en backend y devolver si es correcta, sin avanzar a scoring, resultado de ronda o finalizacion de partida.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar criterios de aceptacion exactos, arquitectura, ADRs, implementaciones US-01 a US-04, esquema PostgreSQL y pruebas; reutilizar la ronda y la autoridad temporal del backend.
+- Resultado propuesto: agregar `POST /api/games/:gameId/rounds/:roundId/guess`, extender PokemonApiClient para obtener el nombre internamente, persistir `finished_at`, `time_taken` e `is_correct`, y conectar un formulario en `Game.tsx`.
+- Decision: aceptado. Se usa `answer` como request, se normaliza solo con trim y minusculas para comparar el nombre exacto, se devuelve unicamente `isCorrect`, y el backend rechaza respuestas al cumplir o superar 30 segundos.
+- Decision descartada: aceptar alias, traducciones, nombres parciales o revelar el nombre correcto; no estan definidos por los criterios y ampliarian el alcance de US-05. Tambien se descarto modificar `score`, `total_score`, `current_round` o el estado de finalizacion.
+- Verificacion: `npm test` en backend; `npm run build` en backend y frontend; pruebas deterministas con reloj inyectado para 29.999 y 30 segundos; revision de payload sin `pokemon_id`.
+- Archivos afectados: `backend/src/modules/game/*`, `backend/src/modules/pokemon/pokemon.client.ts`, `frontend/src/services/api.ts`, `frontend/src/components/Timer/Timer.tsx`, `frontend/src/pages/Game/Game.tsx`, `frontend/src/pages/Game/Game.css`, `docs/API_SPECIFICATION.md`, `docs/ERROR_HANDLING.md`.
+- Commit relacionado: pendiente.
