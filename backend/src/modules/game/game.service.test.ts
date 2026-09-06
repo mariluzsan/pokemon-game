@@ -51,8 +51,12 @@ async function testCreatesRoundWithoutExposingPokemon() {
           startedAt: '2026-09-05T12:01:00.000Z',
         }
       },
+      findById: async () => null,
     },
-    { selectRandomPokemon: async () => 25 },
+    { 
+      selectRandomPokemon: async () => 25,
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+    },
   )
 
   const round = await roundService.createRound({ gameId: 7 })
@@ -70,8 +74,14 @@ async function testCreatesRoundWithoutExposingPokemon() {
 async function testRejectsMissingGame() {
   const roundService = new RoundService(
     { findById: async () => null },
-    { create: async () => { throw new Error('No debe persistir') } },
-    { selectRandomPokemon: async () => 25 },
+    { 
+      create: async () => { throw new Error('No debe persistir') }, 
+      findById: async () => null,
+    },
+    { 
+      selectRandomPokemon: async () => 25,
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+    },
   )
 
   await assert.rejects(() => roundService.createRound({ gameId: 7 }), GameNotFoundError)
@@ -80,11 +90,43 @@ async function testRejectsMissingGame() {
 async function testRejectsFinishedGame() {
   const roundService = new RoundService(
     { findById: async () => createGame({ status: 'FINISHED' }) },
-    { create: async () => { throw new Error('No debe persistir') } },
-    { selectRandomPokemon: async () => 25 },
+    { 
+      create: async () => { throw new Error('No debe persistir') }, 
+      findById: async () => null,
+    },
+    { 
+      selectRandomPokemon: async () => 25,
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+    },
   )
 
   await assert.rejects(() => roundService.createRound({ gameId: 7 }), GameNotInProgressError)
+}
+
+async function testRejectsChallengeFromAnotherGame() {
+  const roundService = new RoundService(
+    { findById: async () => createGame() },
+    {
+      create: async () => { throw new Error('No debe persistir') },
+      findById: async () => ({
+        id: 11,
+        gameId: 7,
+        roundNumber: 1,
+        difficulty: 'EASY',
+        startedAt: '2026-09-05T12:01:00.000Z',
+        pokemonId: 25,
+      }),
+    },
+    {
+      selectRandomPokemon: async () => 25,
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+    },
+  )
+
+  await assert.rejects(
+    () => roundService.getRoundChallenge(999, 11),
+    /La ronda no pertenece a la partida\./,
+  )
 }
 
 async function runTests() {
@@ -94,6 +136,7 @@ async function runTests() {
   await testCreatesRoundWithoutExposingPokemon()
   await testRejectsMissingGame()
   await testRejectsFinishedGame()
+  await testRejectsChallengeFromAnotherGame()
 
   console.log('Game service tests passed')
 }

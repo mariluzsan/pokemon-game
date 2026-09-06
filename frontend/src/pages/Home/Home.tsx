@@ -20,11 +20,19 @@ function Home() {
     try {
       const createdGame = await createGame(playerName)
       setGame(createdGame)
+      // Store game ID in localStorage for the Game page to access
+      localStorage.setItem('currentGameId', createdGame.id.toString())
     } catch {
       setError('No fue posible iniciar la partida. Revisa el nombre e intenta de nuevo.')
     } finally {
       setIsStarting(false)
     }
+  }
+
+  // If a game was created, redirect to game page
+  if (game) {
+    window.location.href = `/game/${game.id}`
+    return null
   }
 
   return (
@@ -50,12 +58,6 @@ function Home() {
           Ver ranking
         </GameButton>
       </form>
-
-      {game && (
-        <p className="home-status">
-          Partida #{game.id} iniciada para {game.playerName}
-        </p>
-      )}
 
       {error && (
         <p className="home-error">

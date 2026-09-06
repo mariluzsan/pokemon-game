@@ -8,6 +8,13 @@ export interface Round {
   startedAt: string
 }
 
+export interface RoundChallenge {
+  id: number
+  roundNumber: number
+  imageUrl: string
+  difficulty: Game['difficulty']
+}
+
 export interface CreateRoundInput {
   gameId: number
 }

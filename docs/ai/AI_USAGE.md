@@ -70,3 +70,26 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 - Verificacion: `git ls-files`, `npm audit --audit-level=moderate` en backend y frontend, revision de `app.ts`, `database.ts`, `.env.example` y migracion inicial.
 - Archivos afectados: `.env.example`, `backend/src/app.ts`, `docs/SECURITY.md`, `docs/SPRINT_0.md`, `README.md`, `docs/ai/AI_USAGE.md`.
 - Commit relacionado: pendiente.
+
+### 2026-09-05 - Visualizar personaje oculto US-03
+- Objetivo: implementar unicamente US-03, permitiendo al jugador visualizar la imagen del Pokémon oculto sin revelar su identidad.
+- Herramienta/modelo: GitHub Copilot (Claude Haiku 4.5).
+- Prompt o resumen: revisar criterios de aceptación, arquitectura, US-01 y US-02; extender PokemonApiClient para obtener imagen; crear endpoint GET para challenge; implementar componentes frontend; no crear nuevo router, reutilizar flujo existente.
+- Resultado propuesto: 
+  1. Backend: extender PokemonApiClient con getPokemonImageUrl(), agregar RoundRepository.findById(), agregar RoundService.getRoundChallenge(), nuevo endpoint GET /api/games/:gameId/rounds/:roundId/challenge.
+  2. Frontend: crear componente PokemonChallenge, página Game, actualizar Home y App para navegación, agregar funciones createRound() y getRoundChallenge() en api.ts.
+  3. Documentación: actualizar API_SPECIFICATION.md con nuevo endpoint.
+- Decision: aceptado. Arquitectura se mantiene: backend encapsula PokéAPI, frontend no expone pokemon_id, seguridad preservada. Se reutilizó arquitectura existente sin modificaciones innecesarias.
+- Verificacion: 
+  - `npm test` en backend: 9 tests pasan (incluidos nuevos tests de getPokemonImageUrl).
+  - `npm run build` en frontend: compila sin errores.
+  - Prueba manual: POST /api/games → POST /api/games/:gameId/rounds → GET /api/games/:gameId/rounds/:roundId/challenge.
+  - Respuesta challenge NO expone pokemon_id, solo: id, roundNumber, imageUrl, difficulty.
+  - Imagen obtenida de PokéAPI es válida y renderizable.
+  - Estados: loading, error, success manejados correctamente en UI.
+- Archivos afectados: 
+  - Backend: `backend/src/modules/pokemon/pokemon.client.ts`, `backend/src/modules/pokemon/pokemon.client.test.ts`, `backend/src/modules/game/round.types.ts`, `backend/src/modules/game/round.repository.ts`, `backend/src/modules/game/round.service.ts`, `backend/src/modules/game/game.controller.ts`, `backend/src/modules/game/game.routes.ts`, `backend/src/modules/game/game.service.test.ts`.
+  - Frontend: `frontend/src/services/api.ts`, `frontend/src/pages/Home/Home.tsx`, `frontend/src/pages/Game/Game.tsx`, `frontend/src/pages/Game/Game.css`, `frontend/src/components/PokemonChallenge/PokemonChallenge.tsx`, `frontend/src/components/PokemonChallenge/PokemonChallenge.css`, `frontend/src/App.tsx`.
+  - Docs: `docs/API_SPECIFICATION.md`.
+- Commit relacionado: pendiente. (No se hace commit per requerimiento del usuario).
+- Notas: US-03 implementada sin avanzar a US-04 (timer), US-05 (guess), US-06 (scoring), US-07 (result), US-08 (finish), US-09+ (hints/IA/ranking/difficulty). Arquitectura mantiene pokemon_id secreto en backend, frontend solo recibe imageUrl.

@@ -2,9 +2,20 @@ export interface PokemonSelector {
   selectRandomPokemon(): Promise<number>
 }
 
+export interface PokemonData {
+  imageUrl: string
+}
+
 interface PokemonApiResponse {
   id?: unknown
   name?: unknown
+  sprites?: {
+    other?: {
+      'official-artwork'?: {
+        front_default?: unknown
+      }
+    }
+  }
 }
 
 export class PokemonApiError extends Error {
@@ -49,6 +60,43 @@ export class PokemonApiClient implements PokemonSelector {
       }
 
       return pokemonId
+    } catch (error) {
+      if (error instanceof PokemonApiError) {
+        throw error
+      }
+
+      throw new PokemonApiError()
+    } finally {
+      clearTimeout(timeout)
+    }
+  }
+
+  async getPokemonImageUrl(pokemonId: number): Promise<PokemonData> {
+    if (!Number.isInteger(pokemonId) || pokemonId <= 0) {
+      throw new PokemonApiError()
+    }
+
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+    try {
+      const response = await this.fetcher(
+        `${this.baseUrl}/pokemon/${pokemonId}`,
+        { signal: controller.signal },
+      )
+
+      if (!response.ok) {
+        throw new PokemonApiError()
+      }
+
+      const data = await response.json() as PokemonApiResponse
+      const imageUrl = data.sprites?.other?.['official-artwork']?.front_default
+
+      if (typeof imageUrl !== 'string' || imageUrl.trim() === '') {
+        throw new PokemonApiError()
+      }
+
+      return { imageUrl }
     } catch (error) {
       if (error instanceof PokemonApiError) {
         throw error

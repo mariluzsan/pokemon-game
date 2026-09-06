@@ -7,6 +7,7 @@ interface RoundRow extends QueryResultRow {
   id: number
   game_id: number
   round_number: number
+  pokemon_id?: number
   difficulty: Game['difficulty']
   started_at: Date
 }
@@ -31,5 +32,24 @@ export class RoundRepository {
     )
 
     return mapRoundRow(result.rows[0])
+  }
+
+  async findById(roundId: number): Promise<(Round & { pokemonId: number }) | null> {
+    const result = await pool.query<RoundRow>(
+      `SELECT id, game_id, round_number, pokemon_id, difficulty, started_at
+       FROM rounds
+       WHERE id = $1`,
+      [roundId],
+    )
+
+    if (result.rows.length === 0) {
+      return null
+    }
+
+    const row = result.rows[0]
+    return {
+      ...mapRoundRow(row),
+      pokemonId: row.pokemon_id || 0,
+    }
   }
 }

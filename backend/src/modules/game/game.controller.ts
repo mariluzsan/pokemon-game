@@ -95,3 +95,43 @@ export async function createRoundController(req: Request, res: Response) {
   }
 }
 
+export async function getRoundChallengeController(req: Request, res: Response) {
+  try {
+    const challenge = await roundService.getRoundChallenge(
+      Number(req.params.gameId),
+      Number(req.params.roundId),
+    )
+
+    res.status(200).json({ challenge })
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(400).json({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: error.message,
+        },
+      })
+      return
+    }
+
+    if (error instanceof PokemonApiError) {
+      res.status(503).json({
+        error: {
+          code: 'POKEAPI_UNAVAILABLE',
+          message: 'No fue posible obtener los datos del desafio.',
+        },
+      })
+      return
+    }
+
+    console.error('Error al obtener desafio de ronda')
+
+    res.status(500).json({
+      error: {
+        code: 'DATABASE_ERROR',
+        message: 'No fue posible obtener los datos del desafio.',
+      },
+    })
+  }
+}
+

@@ -35,10 +35,65 @@ async function testMapsApiFailure() {
   await assert.rejects(() => client.selectRandomPokemon(), PokemonApiError)
 }
 
+async function testReturnsValidatedImageUrl() {
+  const client = new PokemonApiClient(
+    async () => response({
+      id: 25,
+      name: 'pikachu',
+      sprites: {
+        other: {
+          'official-artwork': {
+            front_default: 'https://example.test/pikachu.png',
+          },
+        },
+      },
+    }),
+    () => 0,
+    'https://example.test',
+  )
+
+  const result = await client.getPokemonImageUrl(25)
+  assert.equal(result.imageUrl, 'https://example.test/pikachu.png')
+}
+
+async function testRejectsInvalidImageUrl() {
+  const client = new PokemonApiClient(
+    async () => response({
+      id: 25,
+      name: 'pikachu',
+      sprites: {
+        other: {
+          'official-artwork': {
+            front_default: '',
+          },
+        },
+      },
+    }),
+    () => 0,
+    'https://example.test',
+  )
+
+  await assert.rejects(() => client.getPokemonImageUrl(25), PokemonApiError)
+}
+
+async function testRejectsInvalidPokemonIdForImage() {
+  const client = new PokemonApiClient(
+    async () => response({}),
+    () => 0,
+    'https://example.test',
+  )
+
+  await assert.rejects(() => client.getPokemonImageUrl(-1), PokemonApiError)
+  await assert.rejects(() => client.getPokemonImageUrl(0), PokemonApiError)
+}
+
 async function runTests() {
   await testReturnsValidatedPokemonId()
   await testRejectsInvalidPokemonData()
   await testMapsApiFailure()
+  await testReturnsValidatedImageUrl()
+  await testRejectsInvalidImageUrl()
+  await testRejectsInvalidPokemonIdForImage()
   console.log('Pokemon client tests passed')
 }
 

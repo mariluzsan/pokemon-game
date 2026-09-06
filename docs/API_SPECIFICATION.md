@@ -8,6 +8,7 @@ Base: `/api`
 | POST | `/api/games` | Crear partida |
 | GET | `/api/games/:gameId` | Consultar partida |
 | POST | `/api/games/:gameId/rounds` | Crear una ronda y seleccionar su Pokémon |
+| GET | `/api/games/:gameId/rounds/:roundId/challenge` | Obtener datos visuales del desafío de una ronda |
 | POST | `/api/games/:gameId/rounds/:roundId/guess` | Registrar intento |
 | POST | `/api/games/:gameId/rounds/:roundId/hints` | Solicitar pista |
 | POST | `/api/games/:gameId/finish` | Finalizar partida |
@@ -94,6 +95,31 @@ Errores previstos:
 - `409 GAME_NOT_IN_PROGRESS` cuando la partida no esta disponible para crear una ronda.
 - `503 POKEAPI_UNAVAILABLE` cuando PokéAPI falla o devuelve datos invalidos.
 - `500 DATABASE_ERROR` cuando no fue posible persistir la ronda.
+
+### GET `/api/games/:gameId/rounds/:roundId/challenge`
+
+Obtiene los datos visuales del desafío de una ronda específica (US-03).
+El backend obtiene la imagen del Pokémon desde PokéAPI sin exponer
+la identidad (pokemon_id ni nombre) al cliente.
+
+Respuesta exitosa `200 OK`:
+
+```json
+{
+  "challenge": {
+    "id": 1,
+    "roundNumber": 1,
+    "imageUrl": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png",
+    "difficulty": "EASY"
+  }
+}
+```
+
+Errores previstos:
+
+- `400 VALIDATION_ERROR` cuando `gameId` o `roundId` no es un entero positivo, la ronda no existe o no pertenece a la partida indicada.
+- `503 POKEAPI_UNAVAILABLE` cuando PokéAPI falla o devuelve datos invalidos.
+- `500 DATABASE_ERROR` cuando no fue posible obtener los datos de la ronda.
 
 ## Error estándar
 ```json
