@@ -40,3 +40,8 @@ también es inseguro (caso excepcional), se responde `422 UNSAFE_HINT` con un me
 genérico. El contenido, el nombre objetivo, el prompt y los detalles del proveedor
 no se incluyen en la respuesta ni en logs. La transacción se revierte antes de
 persistir la pista o aplicar su penalización.
+
+En US-18, `POKEAPI_UNAVAILABLE` también cubre el caso en que no existe un
+`pokemonId` candidato dentro del rango de la dificultad vigente tras excluir
+los Pokémon ya usados en la partida (rango agotado o intentos aleatorios
+agotados); no se crea la ronda ni se modifica `games.difficulty`.

@@ -15,10 +15,11 @@ interface RoundWriter {
   findById(roundId: number): ReturnType<RoundRepository['findById']>
   updateGuess(roundId: number, finishedAt: Date, timeTaken: number, isCorrect: boolean, gameId: number, calculateScore: () => number): Promise<RoundCompletion | number>
   expireRound?(roundId: number, gameId: number, finishedAt: Date): Promise<RoundCompletion>
+  findUsedPokemonIds?(gameId: number): Promise<number[]>
 }
 
 interface PokemonPicker {
-  selectRandomPokemon(): Promise<number>
+  selectRandomPokemon(difficulty: Round['difficulty'], excludedPokemonIds: readonly number[]): Promise<number>
   getPokemonImageUrl(pokemonId: number): ReturnType<PokemonApiClient['getPokemonImageUrl']>
   getPokemonName(pokemonId: number): ReturnType<PokemonApiClient['getPokemonName']>
 }
@@ -75,7 +76,10 @@ export class RoundService {
       throw new GameNotInProgressError()
     }
 
-    const pokemonId = await this.pokemonPicker.selectRandomPokemon()
+    const excludedPokemonIds = this.roundRepository.findUsedPokemonIds
+      ? await this.roundRepository.findUsedPokemonIds(game.id)
+      : []
+    const pokemonId = await this.pokemonPicker.selectRandomPokemon(game.difficulty, excludedPokemonIds)
 
     return this.roundRepository.create(
       game.id,

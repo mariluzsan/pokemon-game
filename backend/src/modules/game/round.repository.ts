@@ -149,6 +149,17 @@ export class RoundRepository {
     }
   }
 
+  async findUsedPokemonIds(gameId: number): Promise<number[]> {
+    const result = await pool.query<{ pokemon_id: number }>(
+      `SELECT pokemon_id
+       FROM rounds
+       WHERE game_id = $1`,
+      [gameId],
+    )
+
+    return result.rows.map((row) => row.pokemon_id)
+  }
+
   async getPerformanceSnapshot(gameId: number): Promise<PerformanceSnapshot> {
     const result = await pool.query<PerformanceSnapshotRow>(
       `SELECT

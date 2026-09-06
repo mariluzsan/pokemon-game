@@ -1,5 +1,7 @@
+import { pickCandidatePokemonId, type PokemonDifficulty } from './pokemon-difficulty.js'
+
 export interface PokemonSelector {
-  selectRandomPokemon(): Promise<number>
+  selectRandomPokemon(difficulty: PokemonDifficulty, excludedPokemonIds?: readonly number[]): Promise<number>
 }
 
 export interface PokemonData {
@@ -33,7 +35,6 @@ export class PokemonApiError extends Error {
 
 type FetchLike = typeof fetch
 
-const POKEMON_COUNT = 1025
 const REQUEST_TIMEOUT_MS = 5000
 
 export class PokemonApiClient implements PokemonSelector {
@@ -43,8 +44,13 @@ export class PokemonApiClient implements PokemonSelector {
     private readonly baseUrl = 'https://pokeapi.co/api/v2',
   ) {}
 
-  async selectRandomPokemon(): Promise<number> {
-    const requestedPokemonId = Math.floor(this.random() * POKEMON_COUNT) + 1
+  async selectRandomPokemon(difficulty: PokemonDifficulty, excludedPokemonIds: readonly number[] = []): Promise<number> {
+    const requestedPokemonId = pickCandidatePokemonId(difficulty, excludedPokemonIds, this.random)
+
+    if (requestedPokemonId === null) {
+      throw new PokemonApiError()
+    }
+
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 

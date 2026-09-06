@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "npm run build && node dist/infrastructure/database/migrations/001_initial_schema.test.js && node dist/modules/game/game.service.test.js && node dist/modules/game/performance.service.test.js && node dist/modules/game/difficulty.service.test.js && node dist/modules/hints/hint.service.test.js && node dist/modules/hints/hint.generator.test.js && node dist/modules/hints/hint-safety.validator.test.js && node dist/modules/pokemon/pokemon.client.test.js"
+    "test": "npm run build && node dist/infrastructure/database/migrations/001_initial_schema.test.js && node dist/modules/game/game.service.test.js && node dist/modules/game/performance.service.test.js && node dist/modules/game/difficulty.service.test.js && node dist/modules/hints/hint.service.test.js && node dist/modules/hints/hint.generator.test.js && node dist/modules/hints/hint-safety.validator.test.js && node dist/modules/pokemon/pokemon-difficulty.test.js && node dist/modules/pokemon/pokemon.client.test.js"
   },
   "keywords": [],
   "author": "",

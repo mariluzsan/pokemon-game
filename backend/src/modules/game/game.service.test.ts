@@ -79,6 +79,146 @@ async function testCreatesRoundWithoutExposingPokemon() {
   assert.equal('pokemonId' in round, false)
 }
 
+async function testCreateRoundPassesGameDifficultyAndUsedPokemonIdsToSelector() {
+  let capturedDifficulty: string | null = null
+  let capturedExcluded: readonly number[] | null = null
+
+  const roundService = new RoundService(
+    { findById: async () => createGame({ difficulty: 'MEDIUM' }) },
+    {
+      create: async (gameId, roundNumber, pokemonId, difficulty) => ({
+        id: 12,
+        gameId,
+        roundNumber,
+        difficulty,
+        startedAt: '2026-09-05T12:01:00.000Z',
+        hintsUsed: 0,
+      }),
+      findById: async () => null,
+      updateGuess: async () => 0,
+      findUsedPokemonIds: async (gameId) => {
+        assert.equal(gameId, 7)
+        return [155, 160]
+      },
+    },
+    {
+      selectRandomPokemon: async (difficulty, excludedPokemonIds) => {
+        capturedDifficulty = difficulty
+        capturedExcluded = excludedPokemonIds ?? []
+        return 200
+      },
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pokemon.png' }),
+      getPokemonName: async () => 'pokemon',
+    },
+  )
+
+  const round = await roundService.createRound({ gameId: 7 })
+
+  assert.equal(capturedDifficulty, 'MEDIUM')
+  assert.deepEqual(capturedExcluded, [155, 160])
+  assert.equal(round.difficulty, 'MEDIUM')
+}
+
+async function testCreateRoundDefaultsToNoExclusionsWhenRepositoryLacksSupport() {
+  let capturedExcluded: readonly number[] | null = null
+
+  const roundService = new RoundService(
+    { findById: async () => createGame() },
+    {
+      create: async (gameId, roundNumber, pokemonId, difficulty) => ({
+        id: 13,
+        gameId,
+        roundNumber,
+        difficulty,
+        startedAt: '2026-09-05T12:01:00.000Z',
+        hintsUsed: 0,
+      }),
+      findById: async () => null,
+      updateGuess: async () => 0,
+      // Repositorio sin findUsedPokemonIds: createRound debe seguir funcionando.
+    },
+    {
+      selectRandomPokemon: async (_difficulty, excludedPokemonIds) => {
+        capturedExcluded = excludedPokemonIds ?? []
+        return 25
+      },
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/pikachu.png' }),
+      getPokemonName: async () => 'pikachu',
+    },
+  )
+
+  await roundService.createRound({ gameId: 7 })
+
+  assert.deepEqual(capturedExcluded, [])
+}
+
+async function testCreateRoundFailsWithoutPersistingWhenNoPokemonCandidateExists() {
+  let createCalled = false
+
+  const roundService = new RoundService(
+    { findById: async () => createGame() },
+    {
+      create: async () => {
+        createCalled = true
+        throw new Error('No debe crear una ronda sin Pokemon valido')
+      },
+      findById: async () => null,
+      updateGuess: async () => 0,
+      findUsedPokemonIds: async () => [],
+    },
+    {
+      selectRandomPokemon: async () => { throw new PokemonApiError() },
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/x.png' }),
+      getPokemonName: async () => 'x',
+    },
+  )
+
+  await assert.rejects(() => roundService.createRound({ gameId: 7 }), PokemonApiError)
+  assert.equal(createCalled, false)
+}
+
+async function testNextRoundUsesCurrentGameDifficultyAfterAdaptation() {
+  let gameDifficulty: 'EASY' | 'MEDIUM' | 'HARD' = 'EASY'
+  const capturedDifficulties: string[] = []
+  let nextPokemonId = 100
+
+  const roundService = new RoundService(
+    { findById: async () => createGame({ difficulty: gameDifficulty }) },
+    {
+      create: async (gameId, roundNumber, pokemonId, difficulty) => ({
+        id: roundNumber,
+        gameId,
+        roundNumber,
+        difficulty,
+        startedAt: '2026-09-05T12:00:00.000Z',
+        hintsUsed: 0,
+      }),
+      findById: async () => null,
+      updateGuess: async () => 0,
+      findUsedPokemonIds: async () => [],
+    },
+    {
+      selectRandomPokemon: async (difficulty) => {
+        capturedDifficulties.push(difficulty)
+        nextPokemonId += 1
+        return nextPokemonId
+      },
+      getPokemonImageUrl: async () => ({ imageUrl: 'https://example.test/x.png' }),
+      getPokemonName: async () => 'x',
+    },
+  )
+
+  const roundN = await roundService.createRound({ gameId: 7 })
+  assert.equal(roundN.difficulty, 'EASY')
+
+  // US-17 adapta la dificultad de la partida tras resolver la ronda N.
+  gameDifficulty = 'HARD'
+
+  const roundNPlusOne = await roundService.createRound({ gameId: 7 })
+  assert.equal(roundNPlusOne.difficulty, 'HARD')
+  assert.deepEqual(capturedDifficulties, ['EASY', 'HARD'])
+}
+
 async function testChallengeIncludesConfiguredTimeLimit() {
   const roundService = new RoundService(
     { findById: async () => createGame() },
@@ -642,6 +782,10 @@ async function runTests() {
   testRejectsMissingPlayerName()
   testRejectsLongPlayerName()
   await testCreatesRoundWithoutExposingPokemon()
+  await testCreateRoundPassesGameDifficultyAndUsedPokemonIdsToSelector()
+  await testCreateRoundDefaultsToNoExclusionsWhenRepositoryLacksSupport()
+  await testCreateRoundFailsWithoutPersistingWhenNoPokemonCandidateExists()
+  await testNextRoundUsesCurrentGameDifficultyAfterAdaptation()
   await testChallengeIncludesConfiguredTimeLimit()
   await testRoundExpiresAtConfiguredBoundary()
   await testExpiredRoundCanCompleteAndAdvance()

@@ -98,6 +98,63 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-06 - Seleccion de Pokemon por dificultad US-18
+
+- Objetivo: implementar exclusivamente US-18 para que la creación de una
+  ronda seleccione un Pokémon acorde con `games.difficulty` (la dificultad
+  vigente determinada por US-17), sin recalcular desempeño, nivel ni
+  dificultad, y sin adelantar Sprint 4.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar ACCEPTANCE_CRITERIA.md, USER_STORIES.md,
+  PRODUCT_BACKLOG.md, SCRUM_PLAN.md, API_SPECIFICATION.md,
+  ERROR_HANDLING.md, arquitectura, ADRs, el pipeline US-15/16/17, el esquema
+  PostgreSQL y `PokemonApiClient`. Ninguna fuente definía objetivamente cómo
+  distinguir un Pokémon EASY/MEDIUM/HARD, por lo que se detuvo la
+  implementación y se reportaron alternativas técnicamente viables basadas en
+  campos reales de PokéAPI (rango por generación, suma de stats, especie
+  legendaria/mítica, `capture_rate`) antes de escribir código.
+- Decisión aceptada por el Tech Lead: clasificar por rango de `pokemonId`
+  (generación) — `EASY` 1-151, `MEDIUM` 152-493, `HARD` 494-1025 —, excluir
+  Pokémon ya usados en la partida mediante `rounds.pokemon_id`, y reintentar
+  la selección aleatoria un número limitado de veces antes de un error
+  controlado.
+- Implementación: `pokemon-difficulty.ts` expone la tabla de rangos y las
+  funciones puras `isPokemonInDifficultyRange` y `pickCandidatePokemonId`
+  (aleatoriedad inyectada, sin `Math.random()` disperso). `PokemonApiClient.
+  selectRandomPokemon(difficulty, excludedPokemonIds)` reutiliza el mismo
+  cliente HTTP de US-02 sin crear un segundo flujo: primero elige un
+  candidato local (sin llamar a PokéAPI) y luego valida ese único candidato
+  contra PokéAPI, preservando el comportamiento de error existente ante fallos
+  reales de PokéAPI (sin reintentos de red). `RoundService.createRound`
+  obtiene `game.difficulty` y los `pokemon_id` ya usados
+  (`RoundRepository.findUsedPokemonIds`, método opcional para no romper
+  mocks existentes) antes de seleccionar y persistir la ronda; si no hay
+  candidato válido, no se crea la ronda y se propaga `PokemonApiError` (ya
+  mapeado a `503 POKEAPI_UNAVAILABLE`).
+- Decisiones descartadas: nuevo endpoint, nueva migración (no se requiere
+  columna adicional), nuevo código de error (`POKEAPI_UNAVAILABLE` ya cubre
+  el caso de "sin candidatos"), fallback cruzado entre dificultades sin
+  candidatos, recalcular performance/nivel/dificultad, y cualquier cambio a
+  US-15, US-16 o US-17.
+- Verificación: suite backend completa (incluye pruebas de fronteras exactas
+  151/152 y 493/494, ausencia de solapamiento para los 1025 ids, selección
+  determinista con aleatoriedad inyectada, exclusión de repetidos, rango
+  agotado, y el pipeline Round N -> adaptación -> Round N+1 con nueva
+  dificultad), build frontend, lint frontend (los mismos dos errores
+  preexistentes documentados), `git diff --check` y revisión de errores del
+  editor.
+- Archivos afectados: `backend/src/modules/pokemon/pokemon-difficulty.ts`,
+  `backend/src/modules/pokemon/pokemon-difficulty.test.ts`,
+  `backend/src/modules/pokemon/pokemon.client.ts`,
+  `backend/src/modules/pokemon/pokemon.client.test.ts`,
+  `backend/src/modules/game/round.service.ts`,
+  `backend/src/modules/game/round.repository.ts`,
+  `backend/src/modules/game/game.service.test.ts`, `backend/package.json`,
+  `docs/DIFFICULTY_RULES.md`, `docs/ERROR_HANDLING.md`,
+  `MANUAL_TEST_PLAN_US18.md` y este registro.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del
+  usuario.
+
 ### 2026-09-06 - Adaptacion de dificultad US-17
 
 - Objetivo: adaptar la dificultad vigente de cada partida usando el nivel ya
