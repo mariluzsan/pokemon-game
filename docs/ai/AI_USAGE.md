@@ -110,6 +110,19 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 - Archivos afectados: `backend/src/modules/game/performance.service.ts`, `backend/src/modules/game/performance.service.test.ts`, `backend/src/modules/game/round.repository.ts`, `backend/src/modules/game/game.types.ts`, `backend/package.json`, `MANUAL_TEST_PLAN_US15.md` y este registro.
 - Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
 
+### 2026-09-06 - Calculo de nivel de desempeño US-16
+
+- Objetivo: implementar exclusivamente US-16 para clasificar el desempeño de una partida a partir del snapshot ya consolidado por US-15, sin modificar dificultad ni selección de Pokémon.
+- Herramienta/modelo: GitHub Copilot.
+- Prompt o resumen: revisar criterios y documentación de Sprint 3, reutilizar `PerformanceSnapshot`, evitar migraciones, no crear endpoint si no está documentado y no adelantar US-17 ni US-18.
+- Resultado propuesto: extender `PerformanceService` con una función pura `calculatePerformanceLevel(snapshot)` y un método `getPerformanceLevel(gameId)` que reutiliza `getPerformanceSnapshot(gameId)`.
+- Regla aplicada: `roundsPlayed = correctAnswers + incorrectAnswers`; `precision = roundsPlayed === 0 ? 0 : correctAnswers / roundsPlayed * 100`; `independence = roundsPlayed === 0 ? 0 : max(0, 1 - totalHintsUsed / (roundsPlayed * 3)) * 100`; `score = precision * 0.60 + independence * 0.15`; clasificación `EASY < 40`, `MEDIUM >= 40 && < 70`, `HARD >= 70`.
+- Decisión: aceptada. Se utilizan únicamente `correctAnswers`, `incorrectAnswers` y `totalHintsUsed` ya provistos por US-15. `averageResponseTimeSeconds` permanece en el snapshot porque pertenece a US-15, pero no participa en la clasificación aprobada.
+- Decisiones descartadas: recalcular métricas desde tablas fuera de `PerformanceSnapshot`, persistir `performance_level`, reutilizar `games.difficulty`, crear endpoint público, modificar `rounds.difficulty`, adaptar dificultad automáticamente o filtrar Pokémon por desempeño.
+- Verificación: suite backend completa, build frontend, lint frontend con errores preexistentes no relacionados, `git diff --check`, revisión de errores del editor y `git status`.
+- Archivos afectados: `backend/src/modules/game/performance.service.ts`, `backend/src/modules/game/performance.service.test.ts`, `backend/src/modules/game/game.types.ts`, `MANUAL_TEST_PLAN_US16.md` y este registro.
+- Commit relacionado: pendiente. No se realiza commit por requerimiento del usuario.
+
 ### 2026-09-06 - Validación de spoilers US-13
 
 - Objetivo: impedir desde backend que una pista entregue explícitamente el nombre del Pokémon objetivo.

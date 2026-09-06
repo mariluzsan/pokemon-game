@@ -20,3 +20,13 @@ export interface PerformanceSnapshot {
   totalHintsUsed: number
 }
 
+export type PerformanceLevel = 'EASY' | 'MEDIUM' | 'HARD'
+
+export interface PerformanceLevelResult {
+  level: PerformanceLevel
+  score: number
+  precision: number
+  independence: number
+  roundsPlayed: number
+}
+
