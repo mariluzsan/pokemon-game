@@ -21,6 +21,16 @@ La generación de pistas se trata como una integración no confiable: timeout, e
 
 ## Registros
 
+### 2026-09-05 - Inicio funcional de partida US-01
+- Objetivo: implementar el primer incremento funcional de Sprint 1 para crear una partida desde frontend y backend.
+- Herramienta/modelo: Codex.
+- Prompt o resumen: iniciar formalmente Sprint 1, revisar documentacion obligatoria, confirmar US-01, criterios de aceptacion, API, arquitectura, ADRs y modelo `games`, implementar solo US-01 y detenerse antes de US-02.
+- Resultado propuesto: agregar `POST /api/games` con validacion de `playerName`, persistencia parametrizada en PostgreSQL, respuesta con estado inicial de partida y formulario minimo en Home para iniciar la partida.
+- Decision: aplicado como alcance minimo de US-01; no se crean rondas ni se selecciona Pokemon porque corresponde a US-02.
+- Verificacion: `npm test` en backend; `npm run build` en frontend ejecutado fuera del sandbox tras fallo `spawn EPERM` en sandbox.
+- Archivos afectados: `backend/src/modules/game/*`, `backend/src/app.ts`, `backend/package.json`, `frontend/src/services/api.ts`, `frontend/src/components/GameButton/GameButton.tsx`, `frontend/src/pages/Home/Home.tsx`, `frontend/src/pages/Home/Home.css`, `docs/API_SPECIFICATION.md`, `docs/ai/AI_USAGE.md`.
+- Commit relacionado: pendiente.
+
 ### 2026-09-05 - Revision documental de Sprint 0
 - Objetivo: analizar el estado real del repositorio y actualizar la documentacion desfasada de Sprint 0.
 - Herramienta/modelo: Codex.

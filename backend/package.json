@@ -7,7 +7,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "npm run build && node dist/infrastructure/database/migrations/001_initial_schema.test.js"
+    "test": "npm run build && node dist/infrastructure/database/migrations/001_initial_schema.test.js && node dist/modules/game/game.service.test.js"
   },
   "keywords": [],
   "author": "",

@@ -1,6 +1,7 @@
 import express from 'express'
 import cors from 'cors'
 import { testDatabaseConnection } from './infrastructure/database/database.js'
+import { gameRouter } from './modules/game/game.routes.js'
 
 const app = express()
 const frontendOrigin = process.env.FRONTEND_ORIGIN || 'http://localhost:5173'
@@ -9,6 +10,7 @@ app.use(cors({
   origin: frontendOrigin,
 }))
 app.use(express.json())
+app.use('/api', gameRouter)
 
 app.get('/api/health', async (_req, res) => {
   try {

@@ -13,5 +13,35 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  width: 240px;
+  width: min(320px, 100%);
+}
+
+.player-name-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  color: var(--text-h);
+  font-size: 16px;
+}
+
+.player-name-field input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  color: var(--text-h);
+  background: var(--bg);
+  font: inherit;
+}
+
+.home-status,
+.home-error {
+  max-width: 320px;
+}
+
+.home-error {
+  color: #b42318;
 }
